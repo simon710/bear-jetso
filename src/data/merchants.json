@@ -1,0 +1,110 @@
+[
+    {
+        "name": "麥當勞",
+        "name_en": "McDonalds",
+        "logo": "mcdonalds.jpg",
+        "instagram_id": "mcdonaldshk"
+    },
+    {
+        "name": "百佳",
+        "name_en": "PARKnSHOP",
+        "logo": "parknshop.jpg",
+        "instagram_id": "hkparknshop"
+    },
+    {
+        "name": "1010",
+        "name_en": "1010",
+        "logo": "1010.jpg",
+        "instagram_id": "1010_hk"
+    },
+    {
+        "name": "星巴克",
+        "name_en": "Starbucks",
+        "logo": "starbucks.jpg",
+        "instagram_id": "starbuckshk"
+    },
+    {
+        "name": "海港城",
+        "name_en": "Harbour City",
+        "logo": "harbour_city.jpg",
+        "instagram_id": "harbourcity"
+    },
+    {
+        "name": "屈臣氏",
+        "name_en": "Watsons",
+        "logo": "watsons.jpg",
+        "instagram_id": "hkwatsons"
+    },
+    {
+        "name": "網上行",
+        "name_en": "Netvigator",
+        "logo": "netvigator.jpg",
+        "instagram_id": "netvigator.hk"
+    },
+    {
+        "name": "OK便利店",
+        "name_en": "Circle K",
+        "logo": "circle_k.jpg",
+        "instagram_id": "circlek_hk"
+    },
+    {
+        "name": "3香港",
+        "name_en": "3 Hong Kong",
+        "logo": "3hongkong.jpg",
+        "instagram_id": "3hongkong"
+    },
+    {
+        "name": "中國移動香港",
+        "name_en": "China Mobile HK",
+        "logo": "cmhk.jpg",
+        "instagram_id": "chinamobilehk"
+    },
+    {
+        "name": "SmarTone",
+        "name_en": "SmarTone",
+        "logo": "smartone.jpg",
+        "instagram_id": "smartonehk"
+    },
+    {
+        "name": "惠康",
+        "name_en": "Wellcome",
+        "logo": "wellcome.jpg",
+        "instagram_id": "hkwellcome"
+    },
+    {
+        "name": "永旺",
+        "name_en": "AEON",
+        "logo": "aeon.jpg",
+        "instagram_id": "aeonstores.hk"
+    },
+    {
+        "name": "時代廣場",
+        "name_en": "Times Square",
+        "logo": "times_square.jpg",
+        "instagram_id": "hktimessquare"
+    },
+    {
+        "name": "CSL",
+        "name_en": "CSL",
+        "logo": "csl.jpg",
+        "instagram_id": "cslhk"
+    },
+    {
+        "name": "崇光",
+        "name_en": "SOGO",
+        "logo": "sogo.jpg",
+        "instagram_id": "sogohongkong"
+    },
+    {
+        "name": "7-Eleven",
+        "name_en": "7-Eleven",
+        "logo": "7-eleven.jpg",
+        "instagram_id": "7elevenhk"
+    },
+    {
+        "name": "萬寧",
+        "name_en": "Mannings",
+        "logo": "mannings.jpg",
+        "instagram_id": "mannings_hk"
+    }
+]

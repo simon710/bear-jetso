@@ -1,0 +1,47 @@
+{
+    "pink": {
+        "name": "粉嫩糖果",
+        "primary": "bg-pink-400",
+        "secondary": "bg-pink-100",
+        "text": "text-pink-600",
+        "border": "border-pink-200",
+        "accent": "bg-rose-500",
+        "bg": "bg-pink-50"
+    },
+    "blue": {
+        "name": "夢幻天空",
+        "primary": "bg-blue-400",
+        "secondary": "bg-blue-100",
+        "text": "text-blue-600",
+        "border": "border-blue-200",
+        "accent": "bg-sky-500",
+        "bg": "bg-blue-50"
+    },
+    "lavender": {
+        "name": "薰衣草紫",
+        "primary": "bg-purple-400",
+        "secondary": "bg-purple-100",
+        "text": "text-purple-600",
+        "border": "border-purple-200",
+        "accent": "bg-indigo-500",
+        "bg": "bg-purple-50"
+    },
+    "orange": {
+        "name": "元氣小雞",
+        "primary": "bg-amber-400",
+        "secondary": "bg-amber-100",
+        "text": "text-amber-600",
+        "border": "border-amber-200",
+        "accent": "bg-orange-500",
+        "bg": "bg-amber-50"
+    },
+    "dark": {
+        "name": "星空貓咪",
+        "primary": "bg-slate-700",
+        "secondary": "bg-slate-800",
+        "text": "text-slate-200",
+        "border": "border-slate-600",
+        "accent": "bg-slate-400",
+        "bg": "bg-slate-900"
+    }
+}

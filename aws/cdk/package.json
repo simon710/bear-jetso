@@ -1,0 +1,30 @@
+{
+    "name": "bear-jetso-merchants-api",
+    "version": "1.0.0",
+    "description": "AWS CDK infrastructure for Bear Jetso Merchants API",
+    "main": "index.js",
+    "scripts": {
+        "cdk": "cdk",
+        "deploy": "cdk deploy --require-approval never",
+        "destroy": "cdk destroy",
+        "diff": "cdk diff",
+        "synth": "cdk synth"
+    },
+    "keywords": [
+        "aws-cdk",
+        "dynamodb",
+        "api-gateway",
+        "lambda"
+    ],
+    "author": "",
+    "license": "MIT",
+    "devDependencies": {
+        "aws-cdk": "^2.120.0",
+        "aws-cdk-lib": "^2.120.0",
+        "constructs": "^10.0.0"
+    },
+    "dependencies": {
+        "@aws-sdk/client-dynamodb": "^3.490.0",
+        "@aws-sdk/lib-dynamodb": "^3.490.0"
+    }
+}
