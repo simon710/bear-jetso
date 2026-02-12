@@ -4,9 +4,13 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
+import { AppProvider } from './context/AppContext';
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
-  <App />
+  <AppProvider>
+    <App />
+  </AppProvider>
 );
 
 // If you want to start measuring performance in your app, pass a function

@@ -5,6 +5,9 @@
     "main": "getMerchants.js",
     "dependencies": {
         "@aws-sdk/client-dynamodb": "^3.490.0",
-        "@aws-sdk/lib-dynamodb": "^3.490.0"
+        "@aws-sdk/client-rekognition": "^3.490.0",
+        "@aws-sdk/client-textract": "^3.490.0",
+        "@aws-sdk/lib-dynamodb": "^3.490.0",
+        "tesseract.js": "^7.0.0"
     }
 }

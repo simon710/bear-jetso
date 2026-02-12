@@ -2,6 +2,7 @@
 /node_modules
 /.pnp
 .pnp.js
+/aws/lambda/node_modules
 
 # production / build
 /build
