@@ -88,7 +88,11 @@
         "loginWithGoogle": "使用 Google 登入",
         "loginWithFacebook": "使用 Facebook 登入",
         "logout": "登出帳戶",
-        "linkedAccount": "已連結帳戶"
+        "linkedAccount": "已連結帳戶",
+        "likes_count": "個讚",
+        "noDescription": "尚無描述",
+        "expires": "到期日",
+        "myCollection": "我的收藏"
     },
     "en": {
         "appTitle": "Bear Jetso",
@@ -178,6 +182,10 @@
         "loginWithGoogle": "Login with Google",
         "loginWithFacebook": "Login with Facebook",
         "logout": "Logout Account",
-        "linkedAccount": "Linked Account"
+        "linkedAccount": "Linked Account",
+        "likes_count": "likes",
+        "noDescription": "No description",
+        "expires": "Expires",
+        "myCollection": "My Collection"
     }
 }

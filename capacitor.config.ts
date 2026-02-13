@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.simon.bearjetso',
+  appId: 'com.bigfootws.jetso',
   appName: '小熊優惠助手',
   webDir: 'dist',
   plugins: {

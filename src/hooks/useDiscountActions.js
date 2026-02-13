@@ -1,5 +1,4 @@
 import { useApp } from '../context/AppContext';
-import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { refreshData } from '../utils/db';
 import { scheduleNotifications } from '../utils/notifications';
@@ -8,16 +7,51 @@ export const useDiscountActions = () => {
     const {
         db, discounts, setDiscounts,
         setSelectedItem,
-        notify, t, lang,
         setIsEditing, setActiveTab,
-        notifTime, user
+        notifTime, user, notify, t, lang
     } = useApp();
+
+    const API_URL = import.meta.env.VITE_MERCHANTS_API_URL || 'https://api.bigfootws.com';
+
+    const autoBackup = async (currentDiscounts) => {
+        if (!user || !user.isLoggedIn) return;
+        try {
+            let finalDiscounts = currentDiscounts;
+
+            // If SQLite and no discounts passed, query the DB
+            if (!db.isFallback && !finalDiscounts) {
+                const res = await db.query("SELECT * FROM discounts;");
+                finalDiscounts = res.values.map(item => ({
+                    ...item,
+                    images: JSON.parse(item.images || '[]'),
+                    discountCodes: item.discountCodes ? JSON.parse(item.discountCodes) : (item.discountCode ? [item.discountCode] : [''])
+                }));
+            } else if (!finalDiscounts) {
+                finalDiscounts = discounts;
+            }
+
+            const payload = {
+                userId: user.userId,
+                discounts: finalDiscounts,
+                settings: { lang, notifTime }
+            };
+
+            fetch(`${API_URL}/sync/backup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).catch(e => console.warn('Silent auto-backup heartbeat failed'));
+        } catch (e) {
+            console.warn('Auto-backup logic error', e);
+        }
+    };
 
     const handleDelete = async (id) => {
         if (!window.confirm(t('delete') + '?')) return;
         try {
+            let newList = null;
             if (db.isFallback) {
-                const newList = discounts.filter(d => d.id !== id);
+                newList = discounts.filter(d => d.id !== id);
                 localStorage.setItem('sqlite_fallback_data', JSON.stringify(newList));
                 setDiscounts(newList);
             } else {
@@ -27,6 +61,7 @@ export const useDiscountActions = () => {
             if (LocalNotifications) await LocalNotifications.cancel({ notifications: [{ id: (id % 20000) * 100 }] });
             setSelectedItem(null);
             notify('已刪除！');
+            autoBackup(newList);
         } catch (e) {
             notify('刪除失敗');
         }
@@ -36,15 +71,15 @@ export const useDiscountActions = () => {
         if (!window.confirm(t('confirmUsed'))) return;
         const now = new Date().toLocaleString();
         try {
+            let newList = null;
             if (db.isFallback) {
-                const newList = discounts.map(d => d.id === item.id ? { ...d, status: 'used', usedAt: now } : d);
+                newList = discounts.map(d => d.id === item.id ? { ...d, status: 'used', usedAt: now } : d);
                 localStorage.setItem('sqlite_fallback_data', JSON.stringify(newList));
                 setDiscounts(newList);
             } else {
                 await db.run(`UPDATE discounts SET status='used', usedAt=? WHERE id=?`, [now, item.id]);
                 await refreshData(db, setDiscounts);
             }
-            // Cancel notifications for this item
             const baseId = (item.id % 20000) * 100;
             const idsToCancel = [];
             for (let i = 0; i < 100; i++) idsToCancel.push({ id: baseId + i });
@@ -52,6 +87,7 @@ export const useDiscountActions = () => {
 
             setSelectedItem({ ...item, status: 'used', usedAt: now });
             notify('標記成功！✅');
+            autoBackup(newList);
         } catch (e) {
             console.error(e);
             notify('更新失敗');
@@ -60,19 +96,19 @@ export const useDiscountActions = () => {
 
     const handleMarkAsUnused = async (item) => {
         try {
+            let newList = null;
             if (db.isFallback) {
-                const newList = discounts.map(d => d.id === item.id ? { ...d, status: 'active', usedAt: null } : d);
+                newList = discounts.map(d => d.id === item.id ? { ...d, status: 'active', usedAt: null } : d);
                 localStorage.setItem('sqlite_fallback_data', JSON.stringify(newList));
                 setDiscounts(newList);
             } else {
                 await db.run(`UPDATE discounts SET status='active', usedAt=NULL WHERE id=?`, [item.id]);
                 await refreshData(db, setDiscounts);
             }
-            // Reschedule notifications
             scheduleNotifications({ ...item, status: 'active' }, notifTime);
-
             setSelectedItem({ ...item, status: 'active', usedAt: null });
             notify('已恢復為未使用！✨');
+            autoBackup(newList);
         } catch (e) {
             console.error(e);
             notify('更新失敗');
@@ -85,7 +121,6 @@ export const useDiscountActions = () => {
             setActiveTab('settings');
             return;
         }
-
         const warning = "⚠️ " + t('shareToCommunity') + "?\n\n一經分享，不能收回，請小心不要將個人資料及私人優惠 Code 分享！";
         if (!window.confirm(warning)) return;
 
@@ -100,9 +135,9 @@ export const useDiscountActions = () => {
                     content: item.content,
                     expiryDate: item.expiryDate,
                     images: item.images,
-                    category: item.category || '積分到期',
+                    category: item.category || '一般',
                     link: item.link,
-                    discountCodes: item.discountCodes, // Include codes when sharing
+                    discountCodes: item.discountCodes,
                     userId: user.userId,
                     nickname: user.nickname,
                     avatar: user.avatar
@@ -111,7 +146,6 @@ export const useDiscountActions = () => {
 
             if (response.ok) {
                 const now = new Date().toLocaleString();
-                // If sharing was successful, update the local DB flag
                 if (db.isFallback) {
                     const newList = discounts.map(d => d.id === item.id ? { ...d, is_community_shared: 1, sharedAt: now } : d);
                     localStorage.setItem('sqlite_fallback_data', JSON.stringify(newList));
@@ -132,5 +166,4 @@ export const useDiscountActions = () => {
     };
 
     return { handleDelete, handleMarkAsUsed, handleMarkAsUnused, handleShare };
-
 };

@@ -10,6 +10,7 @@ import merchantsApi from './services/merchantsApi';
 import holidaysApi from './services/holidaysApi';
 import { refreshData } from './utils/db';
 import { scheduleNotifications, rescheduleAllNotifications } from './utils/notifications';
+import { handleRedirectResult } from './services/firebase';
 
 // Components
 import Header from './components/layout/Header';
@@ -49,7 +50,7 @@ const App = () => {
     notifHistory, setNotifHistory,
     showNotifCenter, setShowNotifCenter,
     viewDate, setHolidays,
-    t, notify
+    t, notify, user, setUser
   } = useApp();
 
   const platform = Capacitor.getPlatform();
@@ -69,6 +70,31 @@ const App = () => {
     };
     setNotifHistory(prev => [newNotif, ...prev.slice(0, 49)]);
   };
+
+  // Handle Social Login Redirect Result (for Mobile)
+  useEffect(() => {
+    const checkRedirect = async () => {
+      try {
+        const result = await handleRedirectResult();
+        if (result && result.user) {
+          const firebaseUser = result.user;
+          const newUser = {
+            userId: firebaseUser.uid,
+            nickname: firebaseUser.displayName || '',
+            avatar: '🐻',
+            email: firebaseUser.email,
+            isLoggedIn: true,
+            provider: result.providerId || 'google'
+          };
+          setUser(newUser);
+          notify('登入成功！🐻🎉');
+        }
+      } catch (error) {
+        console.error('Redirect Result Error:', error);
+      }
+    };
+    checkRedirect();
+  }, [setUser, notify]);
 
   // --- 1. 初始化與生命週期 (只在組件掛載時運行一次) ---
   useEffect(() => {
@@ -112,6 +138,7 @@ const App = () => {
             await dbConn.execute(`
               CREATE TABLE IF NOT EXISTS discounts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                uid TEXT UNIQUE,
                 title TEXT NOT NULL,
                 content TEXT,
                 expiryDate TEXT,
@@ -149,6 +176,8 @@ const App = () => {
             try { await dbConn.execute(`ALTER TABLE discounts ADD COLUMN sharedAt TEXT;`); } catch (e) { }
             try { await dbConn.execute(`ALTER TABLE discounts ADD COLUMN category TEXT DEFAULT '積分到期';`); } catch (e) { }
             try { await dbConn.execute(`ALTER TABLE discounts ADD COLUMN discountCodes TEXT;`); } catch (e) { }
+            try { await dbConn.execute(`ALTER TABLE discounts ADD COLUMN uid TEXT;`); } catch (e) { }
+            try { await dbConn.execute(`CREATE UNIQUE INDEX IF NOT EXISTS idx_discounts_uid ON discounts(uid);`); } catch (e) { }
 
             setDb(dbConn);
           } catch (err) {
@@ -337,37 +366,78 @@ const App = () => {
     try {
       const imagesJson = JSON.stringify(formData.images);
       const targetId = selectedItem ? selectedItem.id : Date.now();
+      const itemUid = selectedItem?.uid || 'jetso_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+      const currentFormData = { ...formData, uid: itemUid };
 
       if (db.isFallback) {
         let newList;
         if (isEditing && selectedItem) {
-          newList = discounts.map(d => d.id === selectedItem.id ? { ...d, ...formData } : d);
+          newList = discounts.map(d => d.id === selectedItem.id ? { ...d, ...currentFormData } : d);
         } else {
-          newList = [...discounts, { ...formData, id: targetId, status: 'active' }];
+          newList = [...discounts, { ...currentFormData, id: targetId, status: 'active' }];
         }
         localStorage.setItem('sqlite_fallback_data', JSON.stringify(newList));
         setDiscounts(newList);
       } else {
         if (isEditing && selectedItem) {
-          const sql = `UPDATE discounts SET title=?, content=?, expiryDate=?, images=?, discountCodes=?, link=?, notify_1m_weekly=?, notify_last_7d_daily=?, is_notify_enabled=?, category=?, notif_hour=?, notif_min=?, is_community_shared=? WHERE id=?`;
-          const params = [formData.title, formData.content, formData.expiryDate, imagesJson, JSON.stringify(formData.discountCodes), formData.link, formData.notify_1m_weekly, formData.notify_last_7d_daily, formData.is_notify_enabled, formData.category, formData.notif_hour, formData.notif_min, formData.is_community_shared, selectedItem.id];
+          const sql = `UPDATE discounts SET uid=?, title=?, content=?, expiryDate=?, images=?, discountCodes=?, link=?, notify_1m_weekly=?, notify_last_7d_daily=?, is_notify_enabled=?, category=?, notif_hour=?, notif_min=?, is_community_shared=? WHERE id=?`;
+          const params = [itemUid, formData.title, formData.content, formData.expiryDate, imagesJson, JSON.stringify(formData.discountCodes), formData.link, formData.notify_1m_weekly, formData.notify_last_7d_daily, formData.is_notify_enabled, formData.category, formData.notif_hour, formData.notif_min, formData.is_community_shared, selectedItem.id];
           await db.run(sql, params);
         } else {
-          const sql = `INSERT INTO discounts (title, content, expiryDate, images, discountCodes, link, status, createdAt, notify_1m_weekly, notify_last_7d_daily, is_notify_enabled, category, notif_hour, notif_min, is_community_shared) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-          const params = [formData.title, formData.content, formData.expiryDate, imagesJson, JSON.stringify(formData.discountCodes), formData.link, 'active', new Date().toISOString(), formData.notify_1m_weekly, formData.notify_last_7d_daily, formData.is_notify_enabled, formData.category, formData.notif_hour, formData.notif_min, formData.is_community_shared];
+          const sql = `INSERT INTO discounts (uid, title, content, expiryDate, images, discountCodes, link, status, createdAt, notify_1m_weekly, notify_last_7d_daily, is_notify_enabled, category, notif_hour, notif_min, is_community_shared) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+          const params = [itemUid, formData.title, formData.content, formData.expiryDate, imagesJson, JSON.stringify(formData.discountCodes), formData.link, 'active', new Date().toISOString(), formData.notify_1m_weekly, formData.notify_last_7d_daily, formData.is_notify_enabled, formData.category, formData.notif_hour, formData.notif_min, formData.is_community_shared];
           await db.run(sql, params);
         }
         await refreshData(db, setDiscounts);
       }
 
-      const finalItem = { ...formData, id: parseInt(targetId), status: selectedItem?.status || 'active' };
+      const finalItem = { ...currentFormData, id: parseInt(targetId), status: selectedItem?.status || 'active' };
       scheduleNotifications(finalItem, notifTime);
 
       // 🚩 修復：確保在狀態更新後才設置當前項目
       setSelectedItem(finalItem);
       setIsEditing(false);
-      // Removed: setActiveTab('home');
       notify('儲存成功！✨');
+
+      // ☁️ [Feature] Login-aware Auto-Backup
+      if (user.isLoggedIn) {
+        const apiBase = import.meta.env.VITE_MERCHANTS_API_URL || 'https://api.bigfootws.com';
+        let updatedDiscounts;
+
+        if (db.isFallback) {
+          updatedDiscounts = isEditing && selectedItem ?
+            discounts.map(d => d.id === selectedItem.id ? finalItem : d) :
+            [...discounts, finalItem];
+        } else {
+          // For SQLite, fetch latest from DB to ensure sync
+          const res = await db.query("SELECT * FROM discounts;");
+          updatedDiscounts = res.values.map(item => {
+            let parsedImages = [];
+            try { parsedImages = item.images ? JSON.parse(item.images) : []; } catch (e) { parsedImages = []; }
+
+            let parsedCodes = [''];
+            try { parsedCodes = item.discountCodes ? JSON.parse(item.discountCodes) : (item.discountCode ? [item.discountCode] : ['']); } catch (e) { parsedCodes = ['']; }
+
+            return {
+              ...item,
+              images: parsedImages,
+              discountCodes: parsedCodes
+            };
+          });
+        }
+
+        const payload = {
+          userId: user.userId,
+          discounts: updatedDiscounts,
+          settings: { lang, notifTime }
+        };
+
+        fetch(`${apiBase}/sync/backup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(err => console.warn('Auto-backup heartbeat failed'));
+      }
     } catch (e) {
       console.error('🐻 [Storage Error]:', e);
       notify(t('storageError'));

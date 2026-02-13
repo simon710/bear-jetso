@@ -12,7 +12,7 @@ const DiscountForm = ({ onSave }) => {
         formData, setFormData,
         formErrors, setFormErrors,
         merchants, t, lang, theme,
-        notify
+        notify, setZoomedImage
     } = useApp();
 
     const [suggestions, setSuggestions] = useState([]);
@@ -323,11 +323,16 @@ const DiscountForm = ({ onSave }) => {
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                     {(formData.images || []).map((img, i) => (
-                        <div key={i} className="aspect-square rounded-md overflow-hidden relative group shadow-sm border-2 border-white">
-                            <img src={img} className="w-full h-full object-cover" alt="Discount" />
+                        <div key={i} className="aspect-square rounded-md overflow-hidden relative group shadow-sm border-2 border-white bg-gray-100">
+                            <img
+                                src={img}
+                                className="w-full h-full object-cover cursor-zoom-in active:scale-95 transition-all"
+                                alt="Discount"
+                                onClick={() => setZoomedImage(img)}
+                            />
                             <button
                                 onClick={() => setFormData({ ...formData, images: (formData.images || []).filter((_, idx) => idx !== i) })}
-                                className="absolute top-1 right-1 bg-black/50 text-white p-1 rounded-md opacity-0 group-hover:opacity-100 transition-all"
+                                className="absolute top-1 right-1 bg-rose-500 text-white p-1 rounded-md shadow-md active:scale-90 transition-all z-10"
                             >
                                 <Icon name="trash" size={14} />
                             </button>

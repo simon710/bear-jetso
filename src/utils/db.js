@@ -6,9 +6,17 @@ export const refreshData = async (currentDb, setDiscounts) => {
         return;
     }
     const res = await currentDb.query("SELECT * FROM discounts;");
-    setDiscounts(res.values.map(item => ({
-        ...item,
-        images: JSON.parse(item.images || '[]'),
-        discountCodes: item.discountCodes ? JSON.parse(item.discountCodes) : (item.discountCode ? [item.discountCode] : [''])
-    })));
+    setDiscounts(res.values.map(item => {
+        let parsedImages = [];
+        try { parsedImages = item.images ? JSON.parse(item.images) : []; } catch (e) { }
+
+        let parsedCodes = [''];
+        try { parsedCodes = item.discountCodes ? JSON.parse(item.discountCodes) : (item.discountCode ? [item.discountCode] : ['']); } catch (e) { }
+
+        return {
+            ...item,
+            images: parsedImages,
+            discountCodes: parsedCodes
+        };
+    }));
 };

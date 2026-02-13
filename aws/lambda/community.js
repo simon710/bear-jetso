@@ -1,9 +1,10 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, ScanCommand, PutCommand, UpdateCommand, GetCommand } = require("@aws-sdk/lib-dynamodb");
+const { DynamoDBDocumentClient, ScanCommand, PutCommand, UpdateCommand, GetCommand, BatchGetCommand } = require("@aws-sdk/lib-dynamodb");
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 const COMMUNITY_TABLE = process.env.COMMUNITY_TABLE;
+const USERS_TABLE = process.env.USERS_TABLE;
 
 exports.handler = async (event) => {
     const { httpMethod, path, pathParameters, body } = event;
@@ -26,8 +27,42 @@ exports.handler = async (event) => {
                 }
             }));
 
-            // Sort by createdAt desc
-            const items = (data.Items || []).sort((a, b) => b.createdAt - a.createdAt);
+            let items = (data.Items || []).sort((a, b) => b.createdAt - a.createdAt);
+
+            // Fetch latest user profiles to ensure avatars/nicknames are up-to-date
+            const userIds = [...new Set(items.map(i => i.userId).filter(id => !!id))];
+
+            if (userIds.length > 0) {
+                const profilesMap = {};
+
+                for (let i = 0; i < userIds.length; i += 100) {
+                    const batch = userIds.slice(i, i + 100);
+                    const batchResponse = await docClient.send(new BatchGetCommand({
+                        RequestItems: {
+                            [USERS_TABLE]: {
+                                Keys: batch.map(id => ({ userId: id }))
+                            }
+                        }
+                    }));
+
+                    const batchUsers = batchResponse.Responses[USERS_TABLE] || [];
+                    batchUsers.forEach(u => {
+                        profilesMap[u.userId] = u;
+                    });
+                }
+
+                items = items.map(item => {
+                    if (item.userId && profilesMap[item.userId]) {
+                        const profile = profilesMap[item.userId];
+                        return {
+                            ...item,
+                            nickname: profile.nickname || item.nickname,
+                            avatar: profile.avatar || item.avatar
+                        };
+                    }
+                    return item;
+                });
+            }
 
             return {
                 statusCode: 200,
@@ -63,12 +98,25 @@ exports.handler = async (event) => {
         }
 
         // POST /community/{id}/like
-        if (httpMethod === 'POST' && path.includes('/like')) {
+        if (httpMethod === 'POST' && path.endsWith('/like')) {
             const id = pathParameters.id;
             await docClient.send(new UpdateCommand({
                 TableName: COMMUNITY_TABLE,
                 Key: { id },
                 UpdateExpression: "SET likes = likes + :inc",
+                ExpressionAttributeValues: { ":inc": 1 },
+                ReturnValues: "ALL_NEW"
+            }));
+            return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
+        }
+
+        // POST /community/{id}/unlike
+        if (httpMethod === 'POST' && path.endsWith('/unlike')) {
+            const id = pathParameters.id;
+            await docClient.send(new UpdateCommand({
+                TableName: COMMUNITY_TABLE,
+                Key: { id },
+                UpdateExpression: "SET likes = likes - :inc",
                 ExpressionAttributeValues: { ":inc": 1 },
                 ReturnValues: "ALL_NEW"
             }));

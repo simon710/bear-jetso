@@ -6,8 +6,19 @@ const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
     const [db, setDb] = useState(null);
-    const [lang, setLang] = useState('zh');
-    const [theme, setTheme] = useState(themes.pink);
+    const [lang, setLang] = useState(localStorage.getItem('jetso_lang') || 'zh');
+    const [theme, setTheme] = useState(() => {
+        const saved = localStorage.getItem('jetso_theme');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                // Ensure the theme exists in current themes definition
+                const matchedTheme = Object.values(themes).find(t => t.name === parsed.name);
+                return matchedTheme || themes.pink;
+            } catch (e) { return themes.pink; }
+        }
+        return themes.pink;
+    });
     const [discounts, setDiscounts] = useState([]);
     const [merchants, setMerchants] = useState([]);
     const [isMerchantsLoading, setIsMerchantsLoading] = useState(true);
@@ -83,6 +94,14 @@ export const AppProvider = ({ children }) => {
     useEffect(() => {
         localStorage.setItem('jetso_liked_posts', JSON.stringify(likedPosts));
     }, [likedPosts]);
+
+    useEffect(() => {
+        localStorage.setItem('jetso_theme', JSON.stringify(theme));
+    }, [theme]);
+
+    useEffect(() => {
+        localStorage.setItem('jetso_lang', lang);
+    }, [lang]);
 
     useEffect(() => {
         localStorage.setItem('jetso_user', JSON.stringify(user));

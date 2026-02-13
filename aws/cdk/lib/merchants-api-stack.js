@@ -3,11 +3,39 @@ const dynamodb = require('aws-cdk-lib/aws-dynamodb');
 const lambda = require('aws-cdk-lib/aws-lambda');
 const apigateway = require('aws-cdk-lib/aws-apigateway');
 const path = require('path');
+const s3 = require('aws-cdk-lib/aws-s3');
 const iam = require('aws-cdk-lib/aws-iam');
 
 class MerchantsApiStack extends Stack {
     constructor(scope, id, props) {
         super(scope, id, props);
+
+        // 0. Profile Pics Bucket
+        const profilePicsBucket = new s3.Bucket(this, 'ProfilePicsBucket', {
+            bucketName: 'bear-jetso-profile-pics',
+            removalPolicy: RemovalPolicy.RETAIN,
+            autoDeleteObjects: false,
+            blockPublicAccess: new s3.BlockPublicAccess({
+                blockPublicAcl: false,
+                blockPublicPolicy: false,
+                ignorePublicAcls: false,
+                restrictPublicBuckets: false
+            }),
+            cors: [
+                {
+                    allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.POST, s3.HttpMethods.PUT],
+                    allowedOrigins: ['*'],
+                    allowedHeaders: ['*'],
+                },
+            ],
+        });
+
+        // Add public read policy
+        profilePicsBucket.addToResourcePolicy(new iam.PolicyStatement({
+            actions: ['s3:GetObject'],
+            resources: [`${profilePicsBucket.bucketArn}/*`],
+            principals: [new iam.AnyPrincipal()],
+        }));
 
         // 1. Merchants Table
         const merchantsTable = new dynamodb.Table(this, 'MerchantsTable', {
@@ -43,10 +71,23 @@ class MerchantsApiStack extends Stack {
             removalPolicy: RemovalPolicy.RETAIN,
         });
 
+        // 4. Backups Table
+        const backupsTable = new dynamodb.Table(this, 'BackupsTable', {
+            tableName: 'BearJetsoBackups',
+            partitionKey: {
+                name: 'userId',
+                type: dynamodb.AttributeType.STRING
+            },
+            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            removalPolicy: RemovalPolicy.RETAIN,
+        });
+
         const lambdaEnvironment = {
             TABLE_NAME: merchantsTable.tableName,
             COMMUNITY_TABLE: communityTable.tableName,
             USERS_TABLE: usersTable.tableName,
+            BACKUPS_TABLE: backupsTable.tableName,
+            UPLOAD_BUCKET: profilePicsBucket.bucketName,
             AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
         };
 
@@ -73,7 +114,9 @@ class MerchantsApiStack extends Stack {
             functionName: 'UserProfileHandler',
             code: lambda.Code.fromAsset(lambdaPath),
             handler: 'profile.handler',
-            description: 'Handle user profiles'
+            description: 'Handle user profiles',
+            timeout: Duration.seconds(30),
+            memorySize: 512
         });
 
         const getMerchantsFunction = new lambda.Function(this, 'GetMerchantsFunction', {
@@ -113,6 +156,16 @@ class MerchantsApiStack extends Stack {
             memorySize: 512
         });
 
+        const syncFunction = new lambda.Function(this, 'SyncFunction', {
+            ...lambdaCommonProps,
+            functionName: 'CloudSyncHandler',
+            code: lambda.Code.fromAsset(lambdaPath),
+            handler: 'sync.handler',
+            description: 'Handle cloud backup and restore',
+            timeout: Duration.seconds(30),
+            memorySize: 512
+        });
+
         // Permissions
         merchantsTable.grantReadData(getMerchantsFunction);
         merchantsTable.grantReadData(getMerchantByIdFunction);
@@ -120,6 +173,10 @@ class MerchantsApiStack extends Stack {
         merchantsTable.grantReadWriteData(updateMerchantFunction);
         communityTable.grantReadWriteData(communityFunction);
         usersTable.grantReadWriteData(profileFunction);
+        usersTable.grantReadData(communityFunction);
+        backupsTable.grantReadWriteData(syncFunction);
+        profilePicsBucket.grantReadWrite(profileFunction);
+        profilePicsBucket.grantReadWrite(syncFunction);
 
         ocrFunction.addToRolePolicy(new iam.PolicyStatement({
             actions: ['textract:DetectDocumentText'],
@@ -172,6 +229,10 @@ class MerchantsApiStack extends Stack {
         const profile = api.root.addResource('profile');
         profile.addMethod('POST', new apigateway.LambdaIntegration(profileFunction));
         profile.addResource('{id}').addMethod('GET', new apigateway.LambdaIntegration(profileFunction));
+
+        const sync = api.root.addResource('sync');
+        sync.addResource('backup').addMethod('POST', new apigateway.LambdaIntegration(syncFunction));
+        sync.addResource('restore').addMethod('GET', new apigateway.LambdaIntegration(syncFunction));
 
         // Outputs
         new CfnOutput(this, 'ApiUrl', { value: api.url });

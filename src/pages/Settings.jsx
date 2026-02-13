@@ -4,6 +4,8 @@ import Icon from '../components/common/Icon';
 import { refreshData } from '../utils/db';
 import { rescheduleAllNotifications } from '../utils/notifications';
 import { loginWithGoogle, logout as firebaseLogout } from '../services/firebase';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { Capacitor } from '@capacitor/core';
 
 const Settings = ({ handleTestNotification }) => {
     const {
@@ -14,7 +16,10 @@ const Settings = ({ handleTestNotification }) => {
         db, setDiscounts, discounts,
         user, setUser,
         notify,
-        t
+        t,
+        setSelectedItem,
+        setIsEditing,
+        setActiveTab
     } = useApp();
 
     const [tempUser, setTempUser] = useState(user);
@@ -25,6 +30,45 @@ const Settings = ({ handleTestNotification }) => {
     useEffect(() => {
         setTempUser(user);
     }, [user]);
+
+    // This function is likely intended to be called from a handleSave function,
+    // but the instruction implies it should be added and called with updated discounts.
+    // For now, it's placed here as a standalone helper based on the provided snippet.
+    const autoBackup = async (updatedDiscounts) => {
+        if (!user.isLoggedIn) {
+            return; // Only backup if logged in
+        }
+
+        const apiBase = import.meta.env.VITE_MERCHANTS_API_URL || 'https://api.bigfootws.com';
+
+        const payload = {
+            userId: user.userId,
+            discounts: updatedDiscounts || [],
+            settings: { lang, notifTime }
+        };
+
+        // If SQLite, handle fetching latest for backup
+        if (!db.isFallback) {
+            try {
+                const res = await db.query("SELECT * FROM discounts;");
+                payload.discounts = res.values.map(item => ({
+                    ...item,
+                    images: JSON.parse(item.images || '[]'),
+                    discountCodes: item.discountCodes ? JSON.parse(item.discountCodes) : (item.discountCode ? [item.discountCode] : [''])
+                }));
+            } catch (error) {
+                console.error('Error fetching SQLite data for auto-backup:', error);
+                return;
+            }
+        }
+
+        fetch(`${apiBase}/sync/backup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).catch(err => console.warn('Auto-backup heartbeat failed:', err));
+    };
+
 
     const handleSocialLogin = async (provider) => {
         setIsSocialLoading(true);
@@ -53,6 +97,38 @@ const Settings = ({ handleTestNotification }) => {
             if (response.ok) {
                 setUser(newUser);
                 notify('登入成功！🐻🎉');
+
+                // ☁️ [Feature] Merge local data before restore/save (Two-Way Sync)
+                if (true) { // Always sync/check upon login now for robustness
+                    console.log('🐻 [Sync] Performing two-way sync after login...');
+                    const mergePayload = {
+                        userId: newUser.userId,
+                        discounts: discounts,
+                        settings: { lang, notifTime },
+                        isIncremental: true
+                    };
+                    const syncRes = await fetch(`${API_URL}/sync/backup`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(mergePayload)
+                    });
+
+                    if (syncRes.ok) {
+                        const syncData = await syncRes.json();
+                        // If backend returned a merged list (Cloud + New Local)
+                        if (syncData.discounts) {
+                            console.log(`🐻 [Sync] Two-way sync complete. Merged count: ${syncData.discounts.length}`);
+                            await performRestore(syncData); // Use performRestore to update DB/UI
+                        }
+                    } else {
+                        // Fallback if sync check fails (maybe first time user)
+                        if (discounts.length === 0) {
+                            setTimeout(() => {
+                                handleCheckAndPromptRestore(newUser.userId);
+                            }, 1500);
+                        }
+                    }
+                }
             }
         } catch (error) {
             console.error('Social Login Error:', error);
@@ -66,14 +142,34 @@ const Settings = ({ handleTestNotification }) => {
         if (!window.confirm(t('logout') + '?')) return;
         try {
             await firebaseLogout();
+
+            // 🚩 [Feature] Clear local data on logout
+            if (db.isFallback) {
+                localStorage.removeItem('sqlite_fallback_data');
+            } else {
+                await db.run("DELETE FROM discounts;");
+            }
+            setDiscounts([]);
+
+            // Cancel all notifications
+            if (Capacitor.isPluginAvailable('LocalNotifications')) {
+                try {
+                    const pending = await LocalNotifications.getPending();
+                    if (pending && pending.notifications && pending.notifications.length > 0) {
+                        await LocalNotifications.cancel({ notifications: pending.notifications });
+                    }
+                } catch (e) { console.warn('Notif clear failed', e); }
+            }
+
             setUser({
                 userId: 'user_' + Math.random().toString(36).substr(2, 9),
                 nickname: '',
                 avatar: '🐻',
                 isLoggedIn: false
             });
-            notify('已登出帳戶');
+            notify('已登出並清空本地資料');
         } catch (error) {
+            console.error('Logout error:', error);
             notify('登出失敗');
         }
     };
@@ -88,25 +184,192 @@ const Settings = ({ handleTestNotification }) => {
         notify('已更新所有通知時間！⏰');
     };
 
+    const [isSaving, setIsSaving] = useState(false);
+    const [isSyncingData, setIsSyncingData] = useState(false);
+
+    const handleBackup = async () => {
+        if (!user.isLoggedIn) {
+            notify('請先登入後再備份');
+            return;
+        }
+        if (discounts.length === 0) {
+            notify('沒有資料可備份');
+            return;
+        }
+
+        setIsSyncingData(true);
+        try {
+            // Include all essential local state
+            const payload = {
+                userId: user.userId,
+                discounts: discounts,
+                settings: {
+                    lang,
+                    notifTime
+                }
+            };
+
+            const response = await fetch(`${API_URL}/sync/backup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (response.ok) {
+                notify('雲端備份成功！🐻☁️');
+            } else {
+                throw new Error('備份失敗');
+            }
+        } catch (error) {
+            console.error('Backup Error:', error);
+            notify(`備份失敗: ${error.message}`);
+        } finally {
+            setIsSyncingData(false);
+        }
+    };
+
+    const handleCheckAndPromptRestore = async (userId) => {
+        setIsSyncingData(true);
+        try {
+            const response = await fetch(`${API_URL}/sync/restore?userId=${userId}`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.discounts && data.discounts.length > 0) {
+                    const confirmRestore = window.confirm(
+                        '在雲端找到您的備份資料 (共有 ' + data.discounts.length + ' 條記錄)。\n' +
+                        '是否要恢復到此設備？\n\n' +
+                        '⚠️ 注意：還原將會覆蓋目前手機上的所有私人貼子。'
+                    );
+                    if (confirmRestore) {
+                        await performRestore(data);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Check backup error:', e);
+        } finally {
+            setIsSyncingData(false);
+        }
+    };
+
+    const handleRestore = async () => {
+        if (!user.isLoggedIn) {
+            notify('請先登入後再還原');
+            return;
+        }
+        if (!window.confirm('還原將會覆蓋目前手機上的所有私人優惠，確定繼續？')) return;
+
+        setIsSyncingData(true);
+        try {
+            const response = await fetch(`${API_URL}/sync/restore?userId=${user.userId}`);
+            if (response.ok) {
+                const data = await response.json();
+                await performRestore(data);
+            } else {
+                throw new Error('還原失敗');
+            }
+        } catch (error) {
+            console.error('Restore Error:', error);
+            notify(`還原失敗: ${error.message}`);
+        } finally {
+            setIsSyncingData(false);
+        }
+    };
+
+    const performRestore = async (data) => {
+        const restoredDiscounts = data.discounts;
+
+        if (!Array.isArray(restoredDiscounts)) {
+            notify('雲端沒有找到您的備份資料');
+            return;
+        }
+
+        // Update Local Database
+        if (db.isFallback) {
+            localStorage.setItem('sqlite_fallback_data', JSON.stringify(restoredDiscounts));
+            setDiscounts(restoredDiscounts);
+        } else {
+            // SQLite: Clear and rebuild
+            await db.run("DELETE FROM discounts;");
+            for (const item of restoredDiscounts) {
+                await db.run(`
+                    INSERT INTO discounts (
+                        uid, title, content, expiryDate, images, discountCodes, link, status, usedAt, createdAt,
+                        notify_1m_weekly, notify_last_7d_daily, is_notify_enabled, category, notif_hour, notif_min,
+                        is_community_shared, sharedAt
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `, [
+                    item.uid || null,
+                    item.title, item.content, item.expiryDate,
+                    JSON.stringify(item.images || []),
+                    JSON.stringify(item.discountCodes || ['']),
+                    item.link, item.status, item.usedAt, item.createdAt,
+                    item.notify_1m_weekly || 1,
+                    item.notify_last_7d_daily || 1,
+                    item.is_notify_enabled || 1,
+                    item.category || '一般',
+                    item.notif_hour || '09',
+                    item.notif_min || '00',
+                    item.is_community_shared || 0,
+                    item.sharedAt
+                ]);
+            }
+            await refreshData(db, setDiscounts);
+        }
+
+        // Restore Settings if available
+        if (data.settings) {
+            if (data.settings.lang) setLang(data.settings.lang);
+            if (data.settings.notifTime) {
+                setNotifTime(data.settings.notifTime);
+                localStorage.setItem('jetso_notif_hr', data.settings.notifTime.hour);
+                localStorage.setItem('jetso_notif_min', data.settings.notifTime.min);
+            }
+        }
+
+        // Reschedule notifications
+        await rescheduleAllNotifications(restoredDiscounts, data.settings?.notifTime || notifTime);
+
+        notify('雲端資料已成功還原！🐻🎉');
+    };
+
     const handleProfileSave = async () => {
         if (!tempUser.nickname) {
             notify('請輸入暱稱');
             return;
         }
+        setIsSaving(true);
         try {
+            // Optimization: Remove double payload
+            const payload = { ...tempUser, isLoggedIn: user.isLoggedIn };
+
+            // If we have new avatar data, don't send the preview base64 in the 'avatar' field too
+            if (payload.avatarData && payload.avatar && payload.avatar.startsWith('data:')) {
+                payload.avatar = 'UPLOADING';
+            }
+
+            console.log("Saving profile, payload size approx:", JSON.stringify(payload).length);
+
             const response = await fetch(`${API_URL}/profile`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...tempUser, isLoggedIn: user.isLoggedIn })
+                body: JSON.stringify(payload)
             });
             if (response.ok) {
-                setUser({ ...tempUser, isLoggedIn: user.isLoggedIn });
+                const savedUser = await response.json();
+                console.log("Profile saved successfully:", savedUser);
+                setUser({ ...savedUser, isLoggedIn: user.isLoggedIn });
+                setTempUser(prev => ({ ...prev, avatarData: null })); // Clear upload data
                 notify('個人資料已儲存！🐻✨');
             } else {
-                throw new Error('Failed to save profile');
+                const errorData = await response.json();
+                console.error('Failed to save profile:', errorData);
+                throw new Error(errorData.error || 'Failed to save profile');
             }
         } catch (e) {
-            notify('儲存失敗，請檢查網路連接');
+            console.error('Save profile error:', e);
+            notify(`儲存失敗: ${e.message}`);
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -154,52 +417,130 @@ const Settings = ({ handleTestNotification }) => {
                         </div>
                     )}
 
-                    {/* Profile Customization */}
-                    <div className="w-full space-y-6 pt-2 border-t border-gray-100">
-                        {/* Avatar Selection */}
-                        <div className="space-y-3">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">{t('avatar')}</label>
-                            <div className="flex flex-wrap justify-center gap-4">
-                                {avatarList.map(a => (
-                                    <button
-                                        key={a}
-                                        onClick={() => setTempUser(prev => ({ ...prev, avatar: a }))}
-                                        className={`w-12 h-12 rounded-md flex items-center justify-center text-2xl transition-all shadow-sm ${tempUser.avatar === a ? `${theme.primary} scale-110 shadow-md ring-2 ring-offset-2 ring-pink-200` : 'bg-gray-50 hover:bg-gray-100'}`}
-                                    >
-                                        {a}
-                                    </button>
-                                ))}
+                    {user.isLoggedIn && (
+                        <div className="w-full space-y-6 pt-2 border-t border-gray-100 animate-in slide-in-from-top duration-300">
+                            {/* Avatar Selection */}
+                            <div className="space-y-4">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">{t('avatar')}</label>
+
+                                {/* Current Avatar Display */}
+                                <div className="flex justify-center mb-4">
+                                    <div className={`w-24 h-24 rounded-full border-4 border-white shadow-md overflow-hidden flex items-center justify-center text-5xl bg-gray-50 bg-cover bg-center`}
+                                        style={(tempUser.avatar && (tempUser.avatar.startsWith('http') || tempUser.avatar.startsWith('data:'))) ? { backgroundImage: `url(${tempUser.avatar})` } : {}}>
+                                        {(!tempUser.avatar || (!tempUser.avatar.startsWith('http') && !tempUser.avatar.startsWith('data:'))) && (tempUser.avatar || '🐻')}
+                                    </div>
+                                </div>
+
+                                {/* Preset Avatars */}
+                                <div className="flex flex-wrap justify-center gap-3">
+                                    {avatarList.map(a => (
+                                        <button
+                                            key={a}
+                                            onClick={() => setTempUser(prev => ({ ...prev, avatar: a, avatarData: null }))}
+                                            className={`w-10 h-10 rounded-md flex items-center justify-center text-xl transition-all shadow-sm ${tempUser.avatar === a ? `${theme.primary} scale-110 shadow-md ring-2 ring-offset-1 ring-pink-100` : 'bg-gray-50 hover:bg-gray-100'}`}
+                                        >
+                                            {a}
+                                        </button>
+                                    ))}
+
+                                    {/* Upload Button */}
+                                    <label className="w-10 h-10 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center cursor-pointer transition-all shadow-sm active:scale-95">
+                                        <Icon name="plus" size={18} className="text-gray-400" />
+                                        <input
+                                            type="file"
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={(e) => {
+                                                const file = e.target.files[0];
+                                                if (file) {
+                                                    const reader = new FileReader();
+                                                    reader.onloadend = () => {
+                                                        setTempUser(prev => ({
+                                                            ...prev,
+                                                            avatar: reader.result, // Preview
+                                                            avatarData: reader.result // For upload
+                                                        }));
+                                                    };
+                                                    reader.readAsDataURL(file);
+                                                }
+                                            }}
+                                        />
+                                    </label>
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="w-full space-y-2">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">{t('nickname')}</label>
-                            <input
-                                type="text"
-                                value={tempUser.nickname}
-                                onChange={(e) => setTempUser(prev => ({ ...prev, nickname: e.target.value }))}
-                                className="w-full p-4 rounded-md bg-gray-50 font-black text-gray-700 outline-none border-2 border-transparent focus:border-pink-200 focus:bg-white transition-all shadow-inner"
-                                placeholder={t('anonymous')}
-                            />
-                        </div>
+                            <div className="w-full space-y-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">{t('nickname')}</label>
+                                <input
+                                    type="text"
+                                    value={tempUser.nickname}
+                                    onChange={(e) => setTempUser(prev => ({ ...prev, nickname: e.target.value }))}
+                                    className="w-full p-4 rounded-md bg-gray-50 font-black text-gray-700 outline-none border-2 border-transparent focus:border-pink-200 focus:bg-white transition-all shadow-inner"
+                                    placeholder={t('anonymous')}
+                                />
+                            </div>
 
-                        <div className="flex gap-3">
-                            <button
-                                onClick={handleProfileSave}
-                                className={`flex-1 py-4 rounded-md ${theme.primary} text-white font-black text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2`}
-                            >
-                                <Icon name="check" size={16} /> {t('saveProfile')}
-                            </button>
-                            {user.isLoggedIn && (
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={handleProfileSave}
+                                    disabled={isSaving}
+                                    className={`w-full py-4 rounded-md font-black text-white shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${isSaving ? 'bg-gray-400' : theme.primary}`}
+                                >
+                                    {isSaving ? (
+                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        <Icon name="check" size={20} />
+                                    )}
+                                    {isSaving ? '儲存中...' : t('saveProfile')}
+                                </button>
                                 <button
                                     onClick={handleLogout}
                                     className="px-6 py-4 rounded-md bg-gray-100 text-gray-400 font-black text-sm active:scale-95 transition-all flex items-center justify-center"
                                 >
                                     <Icon name="logOut" size={18} />
                                 </button>
-                            )}
+                            </div>
+
+                            {/* ☁️ Cloud Sync Section */}
+                            <div className="pt-6 border-t border-gray-100 animate-in fade-in duration-500 delay-150">
+                                <h4 className="text-[10px] font-black text-pink-400 uppercase tracking-widest ml-1 mb-4">雲端同步備份</h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        onClick={handleBackup}
+                                        disabled={isSyncingData}
+                                        className="flex flex-col items-center gap-2 p-4 rounded-md bg-pink-50 border border-pink-100 active:scale-95 transition-all group"
+                                    >
+                                        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                                            {isSyncingData ? (
+                                                <div className="w-5 h-5 border-2 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
+                                            ) : (
+                                                <Icon name="upload" size={20} className="text-pink-400" />
+                                            )}
+                                        </div>
+                                        <span className="text-[10px] font-black text-gray-600">上傳備份</span>
+                                    </button>
+
+                                    <button
+                                        onClick={handleRestore}
+                                        disabled={isSyncingData}
+                                        className="flex flex-col items-center gap-2 p-4 rounded-md bg-blue-50 border border-blue-100 active:scale-95 transition-all group"
+                                    >
+                                        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                                            {isSyncingData ? (
+                                                <div className="w-5 h-5 border-2 border-blue-200 border-t-blue-500 rounded-full animate-spin" />
+                                            ) : (
+                                                <Icon name="refresh" size={20} className="text-blue-400" />
+                                            )}
+                                        </div>
+                                        <span className="text-[10px] font-black text-gray-600">恢復資料</span>
+                                    </button>
+                                </div>
+                                <p className="mt-3 text-[9px] text-gray-400 font-bold leading-relaxed px-1">
+                                    將您的私人貼子及設定備份至雲端，更換手機後登入同一帳號即可恢復。
+                                </p>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
             <div className="bg-white rounded-md p-7 shadow-sm space-y-5 border-2 border-white">

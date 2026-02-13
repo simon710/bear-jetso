@@ -1,94 +1,93 @@
-# Bear Jetso Merchants API - 快速部署腳本
-# 此腳本會自動完成所有部署步驟
+# Bear Jetso Merchants API - Quick Deploy Script
+# This script automates the deployment process.
 
-Write-Host "🚀 Bear Jetso Merchants API - 自動部署" -ForegroundColor Cyan
+Write-Host "🚀 Bear Jetso Merchants API - Auto Deploy" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# 檢查 AWS CLI
-Write-Host "步驟 1/7: 檢查 AWS CLI..." -ForegroundColor Yellow
+# Step 1: Check AWS CLI
+Write-Host "Step 1/7: Checking AWS CLI..." -ForegroundColor Yellow
 try {
     $awsVersion = aws --version
-    Write-Host "✅ AWS CLI 已安裝: $awsVersion" -ForegroundColor Green
+    Write-Host "✅ AWS CLI is installed" -ForegroundColor Green
 }
 catch {
-    Write-Host "❌ AWS CLI 未安裝。請先安裝 AWS CLI。" -ForegroundColor Red
-    Write-Host "下載: https://aws.amazon.com/cli/" -ForegroundColor Red
+    Write-Host "❌ AWS CLI is not installed. Please install it first." -ForegroundColor Red
+    Write-Host "Download: https://aws.amazon.com/cli/" -ForegroundColor Red
     exit 1
 }
 
-# 檢查 AWS 憑證
-Write-Host "`n步驟 2/7: 檢查 AWS 憑證..." -ForegroundColor Yellow
+# Step 2: Check AWS Credentials
+Write-Host "`nStep 2/7: Checking AWS Credentials..." -ForegroundColor Yellow
 try {
     $identity = aws sts get-caller-identity --output json | ConvertFrom-Json
-    Write-Host "✅ AWS 帳戶 ID: $($identity.Account)" -ForegroundColor Green
-    Write-Host "✅ AWS 用戶: $($identity.Arn)" -ForegroundColor Green
+    Write-Host "✅ AWS Account ID: $($identity.Account)" -ForegroundColor Green
+    Write-Host "✅ AWS User: $($identity.Arn)" -ForegroundColor Green
 }
 catch {
-    Write-Host "❌ AWS 憑證未配置。請運行: aws configure" -ForegroundColor Red
+    Write-Host "❌ AWS credentials not configured. Please run: aws configure" -ForegroundColor Red
     exit 1
 }
 
-# 安裝 CDK 依賴
-Write-Host "`n步驟 3/7: 安裝 CDK 依賴..." -ForegroundColor Yellow
-Set-Location "c:\Users\Simon\Desktop\AI Project\bear_jetso\aws\cdk"
+# Step 3: Install CDK Dependencies
+Write-Host "`nStep 3/7: Installing CDK dependencies..." -ForegroundColor Yellow
+Set-Location "$PSScriptRoot\cdk"
 npm install
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ CDK 依賴安裝失敗" -ForegroundColor Red
+    Write-Host "❌ CDK dependencies installation failed" -ForegroundColor Red
     exit 1
 }
-Write-Host "✅ CDK 依賴安裝完成" -ForegroundColor Green
+Write-Host "✅ CDK dependencies installation complete" -ForegroundColor Green
 
-# 安裝 Lambda 依賴
-Write-Host "`n步驟 4/7: 安裝 Lambda 依賴..." -ForegroundColor Yellow
-Set-Location "c:\Users\Simon\Desktop\AI Project\bear_jetso\aws\lambda"
+# Step 4: Install Lambda Dependencies
+Write-Host "`nStep 4/7: Installing Lambda dependencies..." -ForegroundColor Yellow
+Set-Location "$PSScriptRoot\lambda"
 npm install
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ Lambda 依賴安裝失敗" -ForegroundColor Red
+    Write-Host "❌ Lambda dependencies installation failed" -ForegroundColor Red
     exit 1
 }
-Write-Host "✅ Lambda 依賴安裝完成" -ForegroundColor Green
+Write-Host "✅ Lambda dependencies installation complete" -ForegroundColor Green
 
-# Bootstrap CDK（如果需要）
-Write-Host "`n步驟 5/7: Bootstrap CDK..." -ForegroundColor Yellow
-Set-Location "c:\Users\Simon\Desktop\AI Project\bear_jetso\aws\cdk"
+# Step 5: Bootstrap CDK
+Write-Host "`nStep 5/7: Bootstrapping CDK..." -ForegroundColor Yellow
+Set-Location "$PSScriptRoot\cdk"
 $accountId = $identity.Account
 $region = "ap-southeast-1"
 
-Write-Host "正在 Bootstrap AWS 環境: $accountId/$region" -ForegroundColor Cyan
-npx cdk bootstrap aws://$accountId/$region
-Write-Host "✅ CDK Bootstrap 完成" -ForegroundColor Green
+Write-Host "Bootstrapping AWS environment: $accountId/$region" -ForegroundColor Cyan
+npx cdk bootstrap "aws://$accountId/$region"
+Write-Host "✅ CDK Bootstrap complete" -ForegroundColor Green
 
-# 部署 Stack
-Write-Host "`n步驟 6/7: 部署 AWS 資源..." -ForegroundColor Yellow
-Write-Host "這可能需要幾分鐘時間..." -ForegroundColor Cyan
-npm run deploy
+# Step 6: Deploy Stack
+Write-Host "`nStep 6/7: Deploying AWS resources..." -ForegroundColor Yellow
+Write-Host "This might take a few minutes..." -ForegroundColor Cyan
+npx cdk deploy --require-approval never
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ 部署失敗" -ForegroundColor Red
+    Write-Host "❌ Deployment failed" -ForegroundColor Red
     exit 1
 }
-Write-Host "✅ AWS 資源部署完成" -ForegroundColor Green
+Write-Host "✅ AWS resources deployment complete" -ForegroundColor Green
 
-# 遷移數據
-Write-Host "`n步驟 7/7: 遷移商戶資料到 DynamoDB..." -ForegroundColor Yellow
-Set-Location "c:\Users\Simon\Desktop\AI Project\bear_jetso\aws\scripts"
+# Step 7: Migrate Data
+Write-Host "`nStep 7/7: Migrating merchant data to DynamoDB..." -ForegroundColor Yellow
+Set-Location "$PSScriptRoot\scripts"
 node migrate-merchants.js
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "⚠️  數據遷移可能失敗，請手動檢查" -ForegroundColor Yellow
+    Write-Host "⚠️  Data migration may have failed, please check manually." -ForegroundColor Yellow
 }
 else {
-    Write-Host "✅ 數據遷移完成" -ForegroundColor Green
+    Write-Host "✅ Data migration complete" -ForegroundColor Green
 }
 
-# 完成
+# Wrap up
 Write-Host "`n========================================" -ForegroundColor Cyan
-Write-Host "🎉 部署完成！" -ForegroundColor Green
+Write-Host "🎉 Deployment Complete!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "下一步:" -ForegroundColor Yellow
-Write-Host "1. 在 AWS Console 查看部署的資源" -ForegroundColor White
-Write-Host "2. 從 CDK 輸出中複製 API URL" -ForegroundColor White
-Write-Host "3. 更新 .env 文件中的 REACT_APP_MERCHANTS_API_URL" -ForegroundColor White
-Write-Host "4. 測試 API 端點" -ForegroundColor White
+Write-Host "Next steps:" -ForegroundColor Yellow
+Write-Host "1. Check your AWS Console for resources" -ForegroundColor White
+Write-Host "2. Copy the API URL from the CDK output" -ForegroundColor White
+Write-Host "3. Update REACT_APP_MERCHANTS_API_URL in .env" -ForegroundColor White
 Write-Host ""
-Write-Host "API 文檔: c:\Users\Simon\Desktop\AI Project\bear_jetso\aws\README.md" -ForegroundColor Cyan
+Write-Host "API documentation is in aws\README.md" -ForegroundColor Cyan
