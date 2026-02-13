@@ -43,9 +43,6 @@ const SocialPost = ({ item, isCommunity = false, onLike, onShare }) => {
                         </span>
                     </div>
                 </div>
-                <button className="text-gray-400 p-1">
-                    <Icon name="more-horizontal" size={18} />
-                </button>
             </div>
 
             {/* Media Area */}
@@ -86,12 +83,14 @@ const SocialPost = ({ item, isCommunity = false, onLike, onShare }) => {
                     <Icon name="heart" size={24} fill={item.isLiked ? "#ec4899" : "none"} />
                 </button>
 
-                <button
-                    onClick={(e) => { e.stopPropagation(); onShare?.(item); }}
-                    className="text-gray-700 hover:text-gray-900 active:scale-110 transition-all p-1"
-                >
-                    <Icon name="send" size={24} />
-                </button>
+                {!isCommunity && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onShare?.(item); }}
+                        className="text-gray-700 hover:text-gray-900 active:scale-110 transition-all p-1"
+                    >
+                        <Icon name="send" size={24} />
+                    </button>
+                )}
             </div>
 
             {/* Caption & Content */}

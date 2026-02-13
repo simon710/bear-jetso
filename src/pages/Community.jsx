@@ -192,6 +192,7 @@ const Community = () => {
                             key={post.id}
                             item={{
                                 ...post,
+                                isCommunity: true,
                                 isLiked: likedPosts.includes(post.id)
                             }}
                             isCommunity={true}

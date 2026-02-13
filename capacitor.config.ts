@@ -8,6 +8,10 @@ const config: CapacitorConfig = {
     LocalNotifications: {
       smallIcon: "ic_stat_jetso",
       iconColor: "#FF69B4"
+    },
+    FirebaseAuthentication: {
+      skipNativeAuth: false,
+      providers: ["google.com"]
     }
   }
 };
