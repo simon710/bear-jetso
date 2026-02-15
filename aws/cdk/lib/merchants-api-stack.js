@@ -224,6 +224,7 @@ class MerchantsApiStack extends Stack {
 
         const communityItem = community.addResource('{id}');
         communityItem.addResource('like').addMethod('POST', new apigateway.LambdaIntegration(communityFunction));
+        communityItem.addResource('unlike').addMethod('POST', new apigateway.LambdaIntegration(communityFunction));
         communityItem.addResource('report').addMethod('POST', new apigateway.LambdaIntegration(communityFunction));
 
         const profile = api.root.addResource('profile');

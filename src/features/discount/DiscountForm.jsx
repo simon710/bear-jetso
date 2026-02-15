@@ -254,17 +254,29 @@ const DiscountForm = ({ onSave }) => {
                 </div>
             </div>
 
-            <div className="space-y-1">
-                <label className={`text-[10px] font-black ${formErrors.expiryDate ? 'text-rose-600' : 'text-gray-400'} ml-2 uppercase tracking-widest`}>{t('expiry')} *</label>
-                <input
-                    type="date"
-                    value={formData.expiryDate}
-                    onChange={e => {
-                        setFormData({ ...formData, expiryDate: e.target.value });
-                        if (e.target.value) setFormErrors(prev => ({ ...prev, expiryDate: false }));
-                    }}
-                    className={`w-full bg-gray-50 rounded-md p-4 border-2 ${formErrors.expiryDate ? 'border-rose-500' : 'border-transparent'} focus:border-pink-200 outline-none font-bold transition-all`}
-                />
+            <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 ml-2 uppercase tracking-widest">{t('startDate')}</label>
+                    <input
+                        type="date"
+                        value={formData.startDate}
+                        onChange={e => setFormData({ ...formData, startDate: e.target.value })}
+                        className="w-full bg-gray-50 rounded-md p-4 border-2 border-transparent focus:border-pink-200 outline-none font-bold transition-all text-xs"
+                    />
+                </div>
+
+                <div className="space-y-1">
+                    <label className={`text-[10px] font-black ${formErrors.expiryDate ? 'text-rose-600' : 'text-gray-400'} ml-2 uppercase tracking-widest`}>{t('expiry')} *</label>
+                    <input
+                        type="date"
+                        value={formData.expiryDate}
+                        onChange={e => {
+                            setFormData({ ...formData, expiryDate: e.target.value });
+                            if (e.target.value) setFormErrors(prev => ({ ...prev, expiryDate: false }));
+                        }}
+                        className={`w-full bg-gray-50 rounded-md p-4 border-2 ${formErrors.expiryDate ? 'border-rose-500' : 'border-transparent'} focus:border-pink-200 outline-none font-bold transition-all text-xs`}
+                    />
+                </div>
             </div>
 
             {formData.category === t('catCode') && (

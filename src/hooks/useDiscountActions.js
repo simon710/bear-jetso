@@ -46,8 +46,7 @@ export const useDiscountActions = () => {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm(t('delete') + '?')) return;
+    const performDelete = async (id) => {
         try {
             let newList = null;
             if (db.isFallback) {
@@ -60,9 +59,19 @@ export const useDiscountActions = () => {
             }
             if (LocalNotifications) await LocalNotifications.cancel({ notifications: [{ id: (id % 20000) * 100 }] });
             setSelectedItem(null);
-            notify('已刪除！');
             autoBackup(newList);
+            return true;
         } catch (e) {
+            console.error(e);
+            return false;
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm(t('delete') + '?')) return;
+        if (await performDelete(id)) {
+            notify('已刪除！');
+        } else {
             notify('刪除失敗');
         }
     };
@@ -133,6 +142,7 @@ export const useDiscountActions = () => {
                     id: item.id.toString(),
                     title: item.title,
                     content: item.content,
+                    startDate: item.startDate,
                     expiryDate: item.expiryDate,
                     images: item.images,
                     category: item.category || '一般',
@@ -165,5 +175,62 @@ export const useDiscountActions = () => {
         }
     };
 
-    return { handleDelete, handleMarkAsUsed, handleMarkAsUnused, handleShare };
+    const handleBookmark = async (item) => {
+        try {
+            // Toggle Logic: Check if already bookmarked
+            const exists = discounts.find(d => d.title === item.title && d.expiryDate === item.expiryDate);
+
+            if (exists) {
+                if (exists.is_readonly === 1) {
+                    if (window.confirm(t('removeBookmark') + '?')) {
+                        if (await performDelete(exists.id)) {
+                            notify(t('removeBookmark') + '!');
+                        } else {
+                            notify('操作失敗');
+                        }
+                    }
+                } else {
+                    notify('此優惠已在您的私人列表！🐻✨');
+                }
+                return;
+            }
+
+            const itemUid = 'community_' + item.id + '_' + Date.now();
+            const imagesJson = JSON.stringify(item.images || []);
+            const codesJson = JSON.stringify(item.discountCodes || ['']);
+
+            if (db.isFallback) {
+                const newList = [...discounts, {
+                    id: Date.now(),
+                    uid: itemUid,
+                    title: item.title,
+                    content: item.content,
+                    startDate: item.startDate,
+                    expiryDate: item.expiryDate,
+                    images: item.images || [],
+                    discountCodes: item.discountCodes || [''],
+                    link: item.link || '',
+                    category: item.category || '一般',
+                    status: 'active',
+                    createdAt: new Date().toISOString(),
+                    is_readonly: 1,
+                    is_community_shared: 0
+                }];
+                localStorage.setItem('sqlite_fallback_data', JSON.stringify(newList));
+                setDiscounts(newList);
+            } else {
+                const sql = `INSERT INTO discounts (uid, title, content, startDate, expiryDate, images, discountCodes, link, status, createdAt, is_readonly, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+                const params = [itemUid, item.title, item.content, item.startDate, item.expiryDate, imagesJson, codesJson, item.link || '', 'active', new Date().toISOString(), 1, item.category || '一般'];
+                await db.run(sql, params);
+                await refreshData(db, setDiscounts);
+            }
+            notify('已成功加入私人貼子！🐻💼');
+            autoBackup();
+        } catch (e) {
+            console.error(e);
+            notify('儲存失敗');
+        }
+    };
+
+    return { handleDelete, handleMarkAsUsed, handleMarkAsUnused, handleShare, handleBookmark };
 };

@@ -66,7 +66,7 @@ export const AppProvider = ({ children }) => {
     };
 
     const [formData, setFormData] = useState({
-        title: '', content: '', expiryDate: '', images: [], discountCodes: [''], link: '',
+        title: '', content: '', startDate: '', expiryDate: '', images: [], discountCodes: [''], link: '',
         notify_1m_weekly: 1, notify_last_7d_daily: 1,
         is_notify_enabled: 1, category: t('catPoints'),
         notif_hour: '09', notif_min: '00',

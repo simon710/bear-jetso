@@ -5,6 +5,16 @@ const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 const COMMUNITY_TABLE = process.env.COMMUNITY_TABLE;
 const USERS_TABLE = process.env.USERS_TABLE;
+const UPLOAD_BUCKET = process.env.UPLOAD_BUCKET || 'bear-jetso-profile-pics';
+const ASSETS_DOMAIN = 'bigfootws.com';
+
+function transformAvatarUrl(url) {
+    if (!url) return url;
+    if (typeof url === 'string' && url.includes('amazonaws.com')) {
+        return url.replace(`${UPLOAD_BUCKET}.s3.ap-southeast-1.amazonaws.com`, ASSETS_DOMAIN);
+    }
+    return url;
+}
 
 exports.handler = async (event) => {
     const { httpMethod, path, pathParameters, body } = event;
@@ -52,15 +62,16 @@ exports.handler = async (event) => {
                 }
 
                 items = items.map(item => {
+                    const avatar = transformAvatarUrl(item.avatar);
                     if (item.userId && profilesMap[item.userId]) {
                         const profile = profilesMap[item.userId];
                         return {
                             ...item,
                             nickname: profile.nickname || item.nickname,
-                            avatar: profile.avatar || item.avatar
+                            avatar: transformAvatarUrl(profile.avatar) || avatar
                         };
                     }
-                    return item;
+                    return { ...item, avatar };
                 });
             }
 

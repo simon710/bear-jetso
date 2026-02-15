@@ -78,10 +78,24 @@ const Settings = ({ handleTestNotification }) => {
             else if (provider === 'facebook') result = await loginWithFacebook();
 
             const firebaseUser = result.user;
+
+            // 🔍 [Fix] Fetch existing profile first to avoid overwriting with defaults
+            let existingProfile = null;
+            try {
+                // Correct path is /profile/{id}
+                const getProfileRes = await fetch(`${API_URL}/profile/${firebaseUser.uid}`);
+                if (getProfileRes.ok) {
+                    existingProfile = await getProfileRes.json();
+                    console.log("Found existing cloud profile:", existingProfile);
+                }
+            } catch (e) {
+                console.warn("Could not fetch existing profile, using defaults");
+            }
+
             const newUser = {
                 userId: firebaseUser.uid,
-                nickname: firebaseUser.displayName || tempUser.nickname || t('anonymous'),
-                avatar: tempUser.avatar || '🐻',
+                nickname: existingProfile?.nickname || firebaseUser.displayName || tempUser.nickname || t('anonymous'),
+                avatar: existingProfile?.avatar || tempUser.avatar || '🐻',
                 email: firebaseUser.email,
                 isLoggedIn: true,
                 provider: provider
@@ -95,14 +109,21 @@ const Settings = ({ handleTestNotification }) => {
             });
 
             if (response.ok) {
-                setUser(newUser);
+                const cloudUser = await response.json();
+                console.log("Profile sync complete:", cloudUser);
+
+                // Merge cloud user with loggedIn status
+                const finalUser = { ...cloudUser, isLoggedIn: true };
+                setUser(finalUser);
+                setTempUser(finalUser); // 💡 [Fix] Directly update tempUser to reflect in UI
+
                 notify('登入成功！🐻🎉');
 
                 // ☁️ [Feature] Merge local data before restore/save (Two-Way Sync)
                 if (true) { // Always sync/check upon login now for robustness
                     console.log('🐻 [Sync] Performing two-way sync after login...');
                     const mergePayload = {
-                        userId: newUser.userId,
+                        userId: finalUser.userId,
                         discounts: discounts,
                         settings: { lang, notifTime },
                         isIncremental: true
@@ -124,7 +145,7 @@ const Settings = ({ handleTestNotification }) => {
                         // Fallback if sync check fails (maybe first time user)
                         if (discounts.length === 0) {
                             setTimeout(() => {
-                                handleCheckAndPromptRestore(newUser.userId);
+                                handleCheckAndPromptRestore(finalUser.userId);
                             }, 1500);
                         }
                     }
@@ -295,22 +316,23 @@ const Settings = ({ handleTestNotification }) => {
                     INSERT INTO discounts (
                         uid, title, content, expiryDate, images, discountCodes, link, status, usedAt, createdAt,
                         notify_1m_weekly, notify_last_7d_daily, is_notify_enabled, category, notif_hour, notif_min,
-                        is_community_shared, sharedAt
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        is_community_shared, sharedAt, is_readonly
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `, [
                     item.uid || null,
                     item.title, item.content, item.expiryDate,
                     JSON.stringify(item.images || []),
                     JSON.stringify(item.discountCodes || ['']),
-                    item.link, item.status, item.usedAt, item.createdAt,
-                    item.notify_1m_weekly || 1,
-                    item.notify_last_7d_daily || 1,
-                    item.is_notify_enabled || 1,
+                    item.link || '', item.status || 'active', item.usedAt || null, item.createdAt || new Date().toISOString(),
+                    item.notify_1m_weekly ?? 1,
+                    item.notify_last_7d_daily ?? 1,
+                    item.is_notify_enabled ?? 1,
                     item.category || '一般',
                     item.notif_hour || '09',
                     item.notif_min || '00',
                     item.is_community_shared || 0,
-                    item.sharedAt
+                    item.sharedAt || null,
+                    item.is_readonly || 0
                 ]);
             }
             await refreshData(db, setDiscounts);

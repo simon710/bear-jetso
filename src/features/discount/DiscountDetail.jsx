@@ -11,11 +11,12 @@ const DiscountDetail = () => {
         merchants, t, lang, theme,
         setIsEditing, setFormData,
         setZoomedImage, notify,
-        likedPosts, setLikedPosts
+        likedPosts, setLikedPosts,
+        discounts, user
     } = useApp();
 
     const [activeImgIdx, setActiveImgIdx] = useState(0);
-    const { handleDelete, handleMarkAsUsed, handleMarkAsUnused, handleShare } = useDiscountActions();
+    const { handleDelete, handleMarkAsUsed, handleMarkAsUnused, handleShare, handleBookmark } = useDiscountActions();
 
     if (!selectedItem) return null;
 
@@ -25,16 +26,17 @@ const DiscountDetail = () => {
 
     const handleCommunityLike = async () => {
         const id = selectedItem.id;
-        if (isLiked) {
-            notify('你已經點過讚了喔！❤️');
-            return;
-        }
+        const endpoint = isLiked ? 'unlike' : 'like';
         try {
-            const response = await fetch(`${API_URL}/community/${id}/like`, { method: 'POST' });
+            const response = await fetch(`${API_URL}/community/${id}/${endpoint}`, { method: 'POST' });
             if (response.ok) {
-                setSelectedItem(prev => ({ ...prev, likes: (prev.likes || 0) + 1 }));
-                setLikedPosts(prev => [...prev, id]);
-                notify('謝謝你的點讚！❤️');
+                setSelectedItem(prev => ({ ...prev, likes: (prev.likes || 0) + (isLiked ? -1 : 1) }));
+                if (isLiked) {
+                    setLikedPosts(prev => prev.filter(pId => pId !== id));
+                } else {
+                    setLikedPosts(prev => [...prev, id]);
+                }
+                notify(isLiked ? '已取消點讚' : '謝謝你的點讚！❤️');
             }
         } catch (e) { notify('操作失敗'); }
     };
@@ -159,14 +161,38 @@ const DiscountDetail = () => {
             )}
 
             <div className="bg-gray-50 p-7 rounded-md space-y-5 border-2 border-white shadow-inner">
-                <div className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">
-                    {renderContentWithLinks(selectedItem.content)}
-                </div>
-                <div className="grid grid-cols-2 gap-4 pt-5 border-t border-gray-200/50">
-                    <div>
-                        <p className="text-[10px] font-black text-gray-300 uppercase">{t('expiry')}</p>
-                        <p className="font-black text-gray-700">{selectedItem.expiryDate}</p>
+                {selectedItem.content && (
+                    <div className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">
+                        {renderContentWithLinks(selectedItem.content)}
                     </div>
+                )}
+                <div className={`grid grid-cols-2 gap-6 ${selectedItem.content ? 'pt-6 border-t border-gray-100' : ''}`}>
+                    {selectedItem.startDate ? (
+                        <>
+                            <div className="space-y-1">
+                                <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">{t('startDate')}</p>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                    <p className="font-black text-sm text-gray-700">{selectedItem.startDate}</p>
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">{t('expiry')}</p>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                                    <p className="font-black text-sm text-gray-700">{selectedItem.expiryDate}</p>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="space-y-1">
+                            <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">{t('expiry')}</p>
+                            <div className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                                <p className="font-black text-sm text-gray-700">{selectedItem.expiryDate}</p>
+                            </div>
+                        </div>
+                    )}
                     {(selectedItem.discountCodes?.length > 0 && selectedItem.discountCodes[0]) && (
                         <div className="col-span-2">
                             <p className="text-[10px] font-black text-gray-300 uppercase mb-2">{t('discountCode')}</p>
@@ -209,9 +235,22 @@ const DiscountDetail = () => {
                         onClick={handleCommunityLike}
                         className={`flex-1 py-5 rounded-md font-black shadow-md active:scale-95 transition-all text-lg flex items-center justify-center gap-3 ${isLiked ? 'bg-rose-500 text-white' : 'bg-white border-2 border-rose-100 text-rose-500'}`}
                     >
-                        <Icon name="heart" size={24} className={isLiked ? 'fill-white' : ''} />
+                        <Icon name="thumbsUp" size={24} fill={isLiked ? "#ffffff" : "none"} className={isLiked ? '' : 'text-rose-500'} />
                         <span>{selectedItem.likes || 0}</span>
                     </button>
+                    {selectedItem.userId !== user?.userId && (
+                        <button
+                            onClick={async () => {
+                                await handleBookmark(selectedItem);
+                                const exists = discounts.some(d => d.title === selectedItem.title && d.expiryDate === selectedItem.expiryDate);
+                                setSelectedItem(prev => ({ ...prev, isSaved: !exists }));
+                            }}
+                            className={`px-8 py-5 rounded-md font-black shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2 border ${discounts.some(d => d.title === selectedItem.title && d.expiryDate === selectedItem.expiryDate) ? 'bg-blue-50 text-blue-500 border-blue-100' : 'bg-gray-50 text-gray-400 border-gray-100'}`}
+                            title={discounts.some(d => d.title === selectedItem.title && d.expiryDate === selectedItem.expiryDate) ? t('removeBookmark') : t('saveToPrivate')}
+                        >
+                            <Icon name="bookmark" size={24} fill={discounts.some(d => d.title === selectedItem.title && d.expiryDate === selectedItem.expiryDate) ? "currentColor" : "none"} />
+                        </button>
+                    )}
                     <button
                         onClick={handleCommunityReport}
                         className="px-8 py-5 bg-gray-50 text-gray-400 font-black rounded-md active:scale-95 transition-all flex items-center justify-center gap-2 border border-gray-100"
@@ -253,26 +292,37 @@ const DiscountDetail = () => {
                         )
                     )}
                     <div className="flex gap-3">
-                        <button
-                            onClick={() => { setFormData(selectedItem); setIsEditing(true); }}
-                            className="flex-1 py-4 bg-gray-100 text-gray-500 font-black rounded-md text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
-                        >
-                            <Icon name="edit" size={16} /> {t('modify')}
-                        </button>
-                        <button
-                            onClick={() => handleDelete(selectedItem.id)}
-                            className="px-6 py-4 bg-rose-50 text-rose-400 font-black rounded-md text-xs active:scale-95 transition-all"
-                        >
-                            <Icon name="trash" size={18} />
-                        </button>
+                        {!selectedItem.is_readonly ? (
+                            <>
+                                <button
+                                    onClick={() => { setFormData(selectedItem); setIsEditing(true); }}
+                                    className="flex-1 py-4 bg-gray-100 text-gray-500 font-black rounded-md text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
+                                >
+                                    <Icon name="edit" size={16} /> {t('modify')}
+                                </button>
+                                <button
+                                    onClick={() => handleDelete(selectedItem.id)}
+                                    className="px-6 py-4 bg-rose-50 text-rose-400 font-black rounded-md text-xs active:scale-95 transition-all"
+                                >
+                                    <Icon name="trash" size={18} />
+                                </button>
+                            </>
+                        ) : (
+                            <button
+                                onClick={() => handleBookmark(selectedItem)}
+                                className="w-full py-4 bg-white border-2 border-gray-100 text-gray-400 font-black rounded-md text-sm flex items-center justify-center gap-2 active:scale-95 transition-all"
+                            >
+                                <Icon name="x" size={18} /> {t('removeBookmark')}
+                            </button>
+                        )}
                     </div>
 
-                    {selectedItem.is_community_shared !== 1 && (
+                    {!selectedItem.is_readonly && selectedItem.is_community_shared !== 1 && (
                         <button
                             onClick={() => handleShare(selectedItem)}
                             className="w-full py-4 bg-pink-50 text-pink-500 font-black rounded-md text-xs flex items-center justify-center gap-2 active:scale-95 transition-all border border-pink-100"
                         >
-                            <Icon name="globe" size={16} /> {t('shareToCommunity')}
+                            <Icon name="share" size={16} /> {t('shareToCommunity')}
                         </button>
                     )}
                 </div>

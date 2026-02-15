@@ -141,6 +141,7 @@ const App = () => {
                 uid TEXT UNIQUE,
                 title TEXT NOT NULL,
                 content TEXT,
+                startDate TEXT,
                 expiryDate TEXT,
                 images TEXT,
                 discountCodes TEXT,
@@ -169,6 +170,7 @@ const App = () => {
             `);
 
             // Migrations
+            try { await dbConn.execute(`ALTER TABLE discounts ADD COLUMN startDate TEXT;`); } catch (e) { }
             try { await dbConn.execute(`ALTER TABLE discounts ADD COLUMN is_notify_enabled INTEGER DEFAULT 1;`); } catch (e) { }
             try { await dbConn.execute(`ALTER TABLE discounts ADD COLUMN notif_hour TEXT DEFAULT '09';`); } catch (e) { }
             try { await dbConn.execute(`ALTER TABLE discounts ADD COLUMN notif_min TEXT DEFAULT '00';`); } catch (e) { }
@@ -177,6 +179,7 @@ const App = () => {
             try { await dbConn.execute(`ALTER TABLE discounts ADD COLUMN category TEXT DEFAULT '積分到期';`); } catch (e) { }
             try { await dbConn.execute(`ALTER TABLE discounts ADD COLUMN discountCodes TEXT;`); } catch (e) { }
             try { await dbConn.execute(`ALTER TABLE discounts ADD COLUMN uid TEXT;`); } catch (e) { }
+            try { await dbConn.execute(`ALTER TABLE discounts ADD COLUMN is_readonly INTEGER DEFAULT 0;`); } catch (e) { }
             try { await dbConn.execute(`CREATE UNIQUE INDEX IF NOT EXISTS idx_discounts_uid ON discounts(uid);`); } catch (e) { }
 
             setDb(dbConn);
@@ -380,12 +383,12 @@ const App = () => {
         setDiscounts(newList);
       } else {
         if (isEditing && selectedItem) {
-          const sql = `UPDATE discounts SET uid=?, title=?, content=?, expiryDate=?, images=?, discountCodes=?, link=?, notify_1m_weekly=?, notify_last_7d_daily=?, is_notify_enabled=?, category=?, notif_hour=?, notif_min=?, is_community_shared=? WHERE id=?`;
-          const params = [itemUid, formData.title, formData.content, formData.expiryDate, imagesJson, JSON.stringify(formData.discountCodes), formData.link, formData.notify_1m_weekly, formData.notify_last_7d_daily, formData.is_notify_enabled, formData.category, formData.notif_hour, formData.notif_min, formData.is_community_shared, selectedItem.id];
+          const sql = `UPDATE discounts SET uid=?, title=?, content=?, startDate=?, expiryDate=?, images=?, discountCodes=?, link=?, notify_1m_weekly=?, notify_last_7d_daily=?, is_notify_enabled=?, category=?, notif_hour=?, notif_min=?, is_community_shared=? WHERE id=?`;
+          const params = [itemUid, formData.title, formData.content, formData.startDate, formData.expiryDate, imagesJson, JSON.stringify(formData.discountCodes), formData.link, formData.notify_1m_weekly, formData.notify_last_7d_daily, formData.is_notify_enabled, formData.category, formData.notif_hour, formData.notif_min, formData.is_community_shared, selectedItem.id];
           await db.run(sql, params);
         } else {
-          const sql = `INSERT INTO discounts (uid, title, content, expiryDate, images, discountCodes, link, status, createdAt, notify_1m_weekly, notify_last_7d_daily, is_notify_enabled, category, notif_hour, notif_min, is_community_shared) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-          const params = [itemUid, formData.title, formData.content, formData.expiryDate, imagesJson, JSON.stringify(formData.discountCodes), formData.link, 'active', new Date().toISOString(), formData.notify_1m_weekly, formData.notify_last_7d_daily, formData.is_notify_enabled, formData.category, formData.notif_hour, formData.notif_min, formData.is_community_shared];
+          const sql = `INSERT INTO discounts (uid, title, content, startDate, expiryDate, images, discountCodes, link, status, createdAt, notify_1m_weekly, notify_last_7d_daily, is_notify_enabled, category, notif_hour, notif_min, is_community_shared) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+          const params = [itemUid, formData.title, formData.content, formData.startDate, formData.expiryDate, imagesJson, JSON.stringify(formData.discountCodes), formData.link, 'active', new Date().toISOString(), formData.notify_1m_weekly, formData.notify_last_7d_daily, formData.is_notify_enabled, formData.category, formData.notif_hour, formData.notif_min, formData.is_community_shared];
           await db.run(sql, params);
         }
         await refreshData(db, setDiscounts);
@@ -539,7 +542,7 @@ const App = () => {
       {activeTab === 'home' && !selectedItem && !isEditing && !showNotifCenter && (
         <FAB onAdd={() => {
           setFormData({
-            title: '', content: '', expiryDate: '', images: [], discountCodes: [''], link: '',
+            title: '', content: '', startDate: '', expiryDate: '', images: [], discountCodes: [''], link: '',
             notify_1m_weekly: 1, notify_last_7d_daily: 1,
             is_notify_enabled: 1, category: t('catPoints'),
             notif_hour: '09', notif_min: '00',

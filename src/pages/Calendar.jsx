@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { getCalendarDays, checkIsSoonExpiring, getStatus, checkIsHKHoliday } from '../utils/helpers';
+import { getCalendarDays, checkIsSoonExpiring, getStatus, checkIsHKHoliday, checkIsInRange } from '../utils/helpers';
 import Icon from '../components/common/Icon';
 import DiscountCard from '../components/DiscountCard';
 
@@ -17,6 +17,10 @@ const Calendar = () => {
     const monthNames = lang === 'zh'
         ? ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"]
         : ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+    const getSelectedDateStr = () => `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
+    const selectedDateStr = getSelectedDateStr();
+    const dayItems = discounts.filter(d => checkIsInRange(selectedDateStr, d.startDate, d.expiryDate));
 
     return (
         <div className="h-full flex flex-col pt-2">
@@ -49,7 +53,8 @@ const Calendar = () => {
                         ))}
                         {days.map((day, i) => {
                             const dateStr = day ? `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : null;
-                            const hasItems = day && discounts.some(d => d.expiryDate === dateStr);
+                            const hasItems = day && discounts.some(d => checkIsInRange(dateStr, d.startDate, d.expiryDate));
+                            const isExpiryDay = day && discounts.some(d => d.expiryDate === dateStr);
                             const isSelected = day === selectedDay;
 
                             // Check if Sunday or Holiday
@@ -64,7 +69,7 @@ const Calendar = () => {
                                 >
                                     <span className={`text-xs font-black ${isSelected ? 'text-white' : (isRed ? 'text-rose-500' : 'text-gray-700')}`}>{day}</span>
                                     {hasItems && !isSelected && (
-                                        <div className={`absolute bottom-1 w-1 h-1 rounded-md ${theme.primary}`} />
+                                        <div className={`absolute bottom-1 w-1 h-1 rounded-md ${isExpiryDay ? theme.primary : 'bg-gray-200'}`} />
                                     )}
                                 </div>
                             );
@@ -77,13 +82,13 @@ const Calendar = () => {
             <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-2 scrollbar-hide">
                 <div className="flex items-center justify-between mb-2 sticky top-0 bg-white/80 backdrop-blur-sm py-2 -mx-4 px-4 z-20">
                     <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-wider">
-                        {viewDate.getMonth() + 1}/{selectedDay} {t('expiryJetso')}
+                        {viewDate.getMonth() + 1}/{selectedDay} {t('active') || 'Active'}
                     </h3>
                     <span className="px-2 py-1 bg-gray-100 rounded-md text-[9px] font-black text-gray-500">
-                        {discounts.filter(d => d.expiryDate === `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`).length}
+                        {dayItems.length}
                     </span>
                 </div>
-                {discounts.filter(d => d.expiryDate === `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`).length === 0 ? (
+                {dayItems.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-8 opacity-30">
                         <div className="w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center mb-4">
                             <Icon name="calendar" size={24} className="text-gray-300" />
@@ -91,11 +96,9 @@ const Calendar = () => {
                         <p className="text-xs font-bold text-gray-400">{t('empty')}</p>
                     </div>
                 ) : (
-                    discounts
-                        .filter(d => d.expiryDate === `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`)
-                        .map(item => (
-                            <DiscountCard key={item.id} item={item} />
-                        ))
+                    dayItems.map(item => (
+                        <DiscountCard key={item.id} item={item} />
+                    ))
                 )}
             </div>
         </div>

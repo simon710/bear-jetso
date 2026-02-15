@@ -31,7 +31,9 @@ const DiscountCard = ({ item }) => {
             </div>
             <div className="flex-1 min-w-0 pr-4">
                 <h3 className="font-black text-gray-800 truncate text-sm mb-1">{item.title}</h3>
-                <p className="text-[10px] text-gray-400 font-bold line-clamp-1 mb-2 italic">{item.content || '無描述'}</p>
+                {item.content && (
+                    <p className="text-[10px] text-gray-400 font-bold line-clamp-1 mb-2 italic">{item.content}</p>
+                )}
                 <div className="flex items-center gap-2">
                     <span className={`px-3 py-0.5 rounded-md text-[8px] font-black uppercase ${status === 'active' ? theme.primary + ' text-white shadow-sm' : 'bg-gray-100 text-gray-400'}`}>
                         {t(status)}

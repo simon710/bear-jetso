@@ -8,6 +8,7 @@
         "edit": "修改優惠",
         "expiry": "有效日期",
         "save": "儲存",
+        "startDate": "開始日期",
         "cancel": "取消",
         "testNotice": "發送測試通知",
         "changeLang": "切換語言",
@@ -20,6 +21,7 @@
         "expired": "已過期",
         "active": "有效中",
         "used": "已使用",
+        "scheduled": "預約中",
         "markAsUsed": "標記為已使用",
         "usedNotice": "此優惠已使用，將不會再收到提示。",
         "usageTime": "使用時間",
@@ -38,7 +40,7 @@
         "zoomHint": "點擊放大查看",
         "gallery": "圖片集",
         "notif1": "到期前一個月, 每星期提示",
-        "notif2": "到期前一星期, 每天提示",
+        "notif2": "到期前一星期或有期範圍內 每天提示",
         "notifHistory": "通知記錄中心",
         "clearNotif": "清空記錄",
         "noNotif": "目前沒有通知記錄喔～",
@@ -92,7 +94,10 @@
         "likes_count": "個讚",
         "noDescription": "尚無描述",
         "expires": "到期日",
-        "myCollection": "我的收藏"
+        "myCollection": "我的收藏",
+        "saveToPrivate": "加入私人貼子",
+        "removeBookmark": "取消收藏貼子",
+        "alreadyBookmarked": "此優惠已收藏"
     },
     "en": {
         "appTitle": "Bear Jetso",
@@ -103,6 +108,7 @@
         "edit": "Edit",
         "expiry": "Expiry Date",
         "save": "Save",
+        "startDate": "Start Date",
         "cancel": "Cancel",
         "testNotice": "Send Test Notification",
         "changeLang": "Language",
@@ -115,6 +121,7 @@
         "expired": "Expired",
         "active": "Active",
         "used": "Used",
+        "scheduled": "Scheduled",
         "markAsUsed": "Used It!",
         "usedNotice": "Used. No reminders.",
         "usageTime": "Used at",
@@ -133,7 +140,7 @@
         "zoomHint": "Tap to zoom",
         "gallery": "Gallery",
         "notif1": "Weekly from 1 month before",
-        "notif2": "Daily in last week",
+        "notif2": "Daily in last week or within active range",
         "notifHistory": "Notification History",
         "noNotif": "No notifications yet~",
         "notifTimeSet": "Daily Reminder Time",
@@ -186,6 +193,9 @@
         "likes_count": "likes",
         "noDescription": "No description",
         "expires": "Expires",
-        "myCollection": "My Collection"
+        "myCollection": "My Collection",
+        "saveToPrivate": "Save to Private",
+        "removeBookmark": "Unbookmark",
+        "alreadyBookmarked": "Already Bookmarked"
     }
 }

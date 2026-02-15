@@ -8,6 +8,15 @@ const s3Client = new S3Client({});
 
 const USERS_TABLE = process.env.USERS_TABLE;
 const UPLOAD_BUCKET = process.env.UPLOAD_BUCKET;
+const ASSETS_DOMAIN = 'bigfootws.com';
+
+function transformAvatarUrl(url) {
+    if (!url) return url;
+    if (url.includes('amazonaws.com')) {
+        return url.replace(`${UPLOAD_BUCKET}.s3.ap-southeast-1.amazonaws.com`, ASSETS_DOMAIN);
+    }
+    return url;
+}
 
 async function uploadToS3(base64Data, userId) {
     const base64Image = base64Data.replace(/^data:image\/\w+;base64,/, "");
@@ -18,11 +27,10 @@ async function uploadToS3(base64Data, userId) {
         Bucket: UPLOAD_BUCKET,
         Key: key,
         Body: buffer,
-        ContentType: 'image/jpeg',
-        // ACL: 'public-read' // Using bucket policy instead
+        ContentType: 'image/jpeg'
     }));
 
-    return `https://${UPLOAD_BUCKET}.s3.ap-southeast-1.amazonaws.com/${key}`;
+    return `https://${ASSETS_DOMAIN}/${key}`;
 }
 
 exports.handler = async (event) => {
@@ -50,10 +58,15 @@ exports.handler = async (event) => {
                 };
             }
 
+            const item = {
+                ...data.Item,
+                avatar: transformAvatarUrl(data.Item.avatar)
+            };
+
             return {
                 statusCode: 200,
                 headers,
-                body: JSON.stringify(data.Item)
+                body: JSON.stringify(item)
             };
         }
 
@@ -73,14 +86,13 @@ exports.handler = async (event) => {
                     console.log(`S3 upload success: ${avatarUrl}`);
                 } catch (s3Error) {
                     console.error("S3 Upload Error:", s3Error);
-                    // Keep the previous avatar if upload fails, or log specifically
                 }
             }
 
             const item = {
                 ...rest,
                 userId,
-                avatar: avatarUrl,
+                avatar: transformAvatarUrl(avatarUrl),
                 updatedAt: Date.now()
             };
 

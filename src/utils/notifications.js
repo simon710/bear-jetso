@@ -25,10 +25,12 @@ export const scheduleNotifications = async (item, notifTime) => {
     const expiryDate = new Date(item.expiryDate.replace(/-/g, '/'));
     expiryDate.setHours(parseInt(hr), parseInt(min), 0);
 
+    const startDate = item.startDate ? new Date(item.startDate.replace(/-/g, '/')) : null;
+    if (startDate) startDate.setHours(parseInt(hr), parseInt(min), 0);
 
     const notifications = [];
 
-    // 1. Day of expiry
+    // 1. Day of expiry (ID: baseId + 0)
     notifications.push({
         title: "今日到期！ 🐻",
         body: `「${item.title}」於今天到期，記得在今天內使用呀！`,
@@ -39,7 +41,7 @@ export const scheduleNotifications = async (item, notifTime) => {
         extra: { discountId: item.id }
     });
 
-    // 2. Weekly reminders from 1 month before (notif1)
+    // 2. Weekly reminders from 1 month before (IDs: baseId + 15 to 18)
     if (item.notify_1m_weekly) {
         for (let i = 1; i <= 4; i++) {
             const date = new Date(expiryDate);
@@ -48,7 +50,7 @@ export const scheduleNotifications = async (item, notifTime) => {
                 notifications.push({
                     title: "優惠快到期囉！ 🐻",
                     body: `「${item.title}」還有 ${i} 星期就過期了，快點計劃使用吧！`,
-                    id: baseId + 10 + i,
+                    id: baseId + 14 + i,
                     schedule: { at: date },
                     actionTypeId: "",
                     smallIcon: "ic_stat_jetso",
@@ -58,15 +60,28 @@ export const scheduleNotifications = async (item, notifTime) => {
         }
     }
 
-    // 3. Daily reminders in last week (notif2)
+    // 3. Daily reminders (IDs: baseId + 1 to 14)
+    // Supports "Within range" OR "Last 7 days"
     if (item.notify_last_7d_daily) {
-        for (let i = 1; i <= 6; i++) {
-            const date = new Date(expiryDate);
-            date.setDate(date.getDate() - i);
-            if (date > new Date()) {
+        for (let i = 1; i <= 14; i++) {
+            const date = new Date();
+            date.setDate(date.getDate() + i);
+            date.setHours(parseInt(hr), parseInt(min), 0);
+
+            if (date >= expiryDate) break; // Don't duplicate expiry day or go beyond
+
+            const diffMs = expiryDate - date;
+            const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+            const isInLastWeek = diffDays <= 7;
+            const isInActiveRange = startDate ? (date >= startDate && date <= expiryDate) : false;
+
+            if (isInLastWeek || isInActiveRange) {
                 notifications.push({
-                    title: "快到期啦！ 🐻",
-                    body: `「${item.title}」還有 ${i} 天就過期了！別忘記它喔～`,
+                    title: isInActiveRange && !isInLastWeek ? "優惠進行中！ 🐻" : "快到期啦！ 🐻",
+                    body: isInActiveRange && !isInLastWeek
+                        ? `「${item.title}」正在優惠期內，別錯過喔！`
+                        : `「${item.title}」還有 ${diffDays} 天就過期了！別忘記它喔～`,
                     id: baseId + i,
                     schedule: { at: date },
                     actionTypeId: "",
@@ -78,7 +93,7 @@ export const scheduleNotifications = async (item, notifTime) => {
     }
 
     if (notifications.length > 0) {
-        console.log(`🐻 [Notifications] Scheduling ${notifications.length} notifications for "${item.title}" at ${notifTime.hour}:${notifTime.min}`);
+        console.log(`🐻 [Notifications] Scheduling ${notifications.length} notifications for "${item.title}" at ${hr}:${min}`);
         await LocalNotifications.schedule({ notifications });
     }
 };

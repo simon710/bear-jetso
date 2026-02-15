@@ -20,7 +20,7 @@ const API_URL = getEnv('VITE_MERCHANTS_API_URL') ||
 
 const ocrApi = {
     /**
-     * 使用 AI 識別圖片中的文字
+     * 使用 AI 識別圖片中的文字 
      * @param {string} base64Image - 圖片的 base64 字串
      * @returns {Promise<Object>} 識別結果 { detectedLines, extractedDate }
      */

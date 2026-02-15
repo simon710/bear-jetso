@@ -6,8 +6,8 @@ import { useDiscountActions } from '../hooks/useDiscountActions';
 import { checkIsSoonExpiring } from '../utils/helpers';
 
 const Community = () => {
-    const { theme, t, notify, setZoomedImage, likedPosts, setLikedPosts, setSelectedItem, user } = useApp();
-    const { handleShare } = useDiscountActions();
+    const { theme, t, notify, setZoomedImage, likedPosts, setLikedPosts, setSelectedItem, user, discounts } = useApp();
+    const { handleShare, handleBookmark } = useDiscountActions();
     const [posts, setPosts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [communitySort, setCommunitySort] = useState('newest');
@@ -160,25 +160,35 @@ const Community = () => {
             </div>
 
             {isLoading && !isRefreshing ? (
-                <div className="px-4 py-8 space-y-8 max-w-lg mx-auto animate-in fade-in duration-500">
-                    {[1, 2, 3].map(i => (
-                        <div key={i} className="bg-white rounded-lg border border-gray-100 overflow-hidden shadow-sm">
-                            <div className="p-3 flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-full bg-gray-50 border border-gray-100 animate-pulse" />
-                                <div className="flex-1 space-y-2">
-                                    <div className="h-3 bg-gray-50 rounded w-1/3 animate-pulse" />
-                                    <div className="h-2 bg-gray-50/50 rounded w-1/2 animate-pulse" />
-                                </div>
-                            </div>
-                            <div className="aspect-square bg-gray-50 animate-pulse flex items-center justify-center">
-                                <Icon name="image" size={48} className="text-gray-100" />
-                            </div>
-                            <div className="p-3 space-y-2">
-                                <div className="h-2 bg-gray-50 rounded w-full animate-pulse" />
-                                <div className="h-2 bg-gray-50 rounded w-2/3 animate-pulse" />
-                            </div>
+                <div className="flex flex-col items-center justify-center py-24 animate-in fade-in zoom-in duration-500">
+                    <div className="relative mb-6">
+                        <div className={`w-20 h-20 border-4 border-gray-100 border-t-pink-400 rounded-full animate-spin`} style={{ borderColor: `${theme.primary}20`, borderTopColor: theme.primary.replace('bg-', '') }} />
+                        <div className="absolute inset-0 flex items-center justify-center text-3xl animate-bounce">
+                            🐻
                         </div>
-                    ))}
+                    </div>
+                    <div className="flex flex-col items-center gap-2">
+                        <p className={`text-sm font-black uppercase tracking-widest ${theme.text} animate-pulse`}>
+                            {t('loading')}
+                        </p>
+                        <div className="flex gap-1">
+                            {[0, 1, 2].map(i => (
+                                <div key={i} className={`w-1.5 h-1.5 rounded-full ${theme.primary} animate-bounce`} style={{ animationDelay: `${i * 0.15}s` }} />
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Background Skeletons for depth */}
+                    <div className="w-full flex gap-2 px-2 mt-12 opacity-30 grayscale pointer-events-none">
+                        <div className="w-1/2 flex flex-col gap-2">
+                            <div className="h-48 bg-gray-100 rounded-lg animate-pulse" />
+                            <div className="h-64 bg-gray-100 rounded-lg animate-pulse" />
+                        </div>
+                        <div className="w-1/2 flex flex-col gap-2">
+                            <div className="h-64 bg-gray-100 rounded-lg animate-pulse" />
+                            <div className="h-48 bg-gray-100 rounded-lg animate-pulse" />
+                        </div>
+                    </div>
                 </div>
             ) : sortedPosts.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-gray-300 space-y-4">
@@ -186,20 +196,43 @@ const Community = () => {
                     <p className="font-bold">{t('empty')}</p>
                 </div>
             ) : (
-                <div className="space-y-4 px-2 md:px-4">
-                    {sortedPosts.map(post => (
-                        <SocialPost
-                            key={post.id}
-                            item={{
-                                ...post,
-                                isCommunity: true,
-                                isLiked: likedPosts.includes(post.id)
-                            }}
-                            isCommunity={true}
-                            onLike={handleLike}
-                            onShare={handlePostShare}
-                        />
-                    ))}
+                <div className="flex gap-2 px-2 pb-4">
+                    <div className="w-1/2 flex flex-col gap-2">
+                        {sortedPosts.filter((_, i) => i % 2 === 0).map(post => (
+                            <div key={post.id} className="w-full">
+                                <SocialPost
+                                    item={{
+                                        ...post,
+                                        isCommunity: true,
+                                        isLiked: likedPosts.includes(post.id),
+                                        isSaved: discounts.some(d => d.title === post.title && d.expiryDate === post.expiryDate)
+                                    }}
+                                    isCommunity={true}
+                                    onLike={handleLike}
+                                    onShare={handlePostShare}
+                                    onBookmark={handleBookmark}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                    <div className="w-1/2 flex flex-col gap-2">
+                        {sortedPosts.filter((_, i) => i % 2 !== 0).map(post => (
+                            <div key={post.id} className="w-full">
+                                <SocialPost
+                                    item={{
+                                        ...post,
+                                        isCommunity: true,
+                                        isLiked: likedPosts.includes(post.id),
+                                        isSaved: discounts.some(d => d.title === post.title && d.expiryDate === post.expiryDate)
+                                    }}
+                                    isCommunity={true}
+                                    onLike={handleLike}
+                                    onShare={handlePostShare}
+                                    onBookmark={handleBookmark}
+                                />
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
         </div>

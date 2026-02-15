@@ -23,8 +23,32 @@ export const checkIsSoonExpiring = (dateStr) => {
 export const getStatus = (item) => {
     if (!item) return 'active';
     if (item.status === 'used') return 'used';
-    if (checkIsExpired(item.expiryDate)) return 'expired';
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (item.expiryDate) {
+        const end = new Date(item.expiryDate.replace(/-/g, '/'));
+        if (end < today) return 'expired';
+    }
+
+    if (item.startDate) {
+        const start = new Date(item.startDate.replace(/-/g, '/'));
+        if (start > today) return 'scheduled';
+    }
+
     return 'active';
+};
+
+export const checkIsInRange = (dateStr, startDate, endDate) => {
+    if (!dateStr || !endDate) return false;
+    try {
+        const current = new Date(dateStr.replace(/-/g, '/')).getTime();
+        const end = new Date(endDate.replace(/-/g, '/')).getTime();
+        if (!startDate) return current === end;
+        const start = new Date(startDate.replace(/-/g, '/')).getTime();
+        return current >= start && current <= end;
+    } catch (e) { return false; }
 };
 
 export const getCalendarDays = (year, month) => {
