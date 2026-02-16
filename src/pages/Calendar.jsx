@@ -20,7 +20,13 @@ const Calendar = () => {
 
     const getSelectedDateStr = () => `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
     const selectedDateStr = getSelectedDateStr();
-    const dayItems = discounts.filter(d => checkIsInRange(selectedDateStr, d.startDate, d.expiryDate));
+    const dayItems = discounts
+        .filter(d => checkIsInRange(selectedDateStr, d.startDate, d.expiryDate))
+        .sort((a, b) => {
+            const dateA = new Date(a.expiryDate.replace(/-/g, '/'));
+            const dateB = new Date(b.expiryDate.replace(/-/g, '/'));
+            return dateA - dateB;
+        });
 
     return (
         <div className="h-full flex flex-col pt-2">

@@ -149,8 +149,12 @@ const DiscountDetail = () => {
             {isCommunity && (
                 <div className="bg-gray-50/50 p-4 rounded-md border border-gray-100 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-white rounded-md border border-pink-100 flex items-center justify-center text-xl shadow-sm">
-                            {selectedItem.avatar || '🐻'}
+                        <div className="w-10 h-10 bg-white rounded-md border border-pink-100 flex items-center justify-center overflow-hidden text-xl shadow-sm">
+                            {typeof selectedItem.avatar === 'string' && (selectedItem.avatar.startsWith('http') || selectedItem.avatar.startsWith('data:')) ? (
+                                <img src={selectedItem.avatar} className="w-full h-full object-cover" alt="avatar" />
+                            ) : (
+                                <span>{selectedItem.avatar || '🐻'}</span>
+                            )}
                         </div>
                         <div>
                             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Shared By</p>

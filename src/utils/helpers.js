@@ -43,12 +43,28 @@ export const getStatus = (item) => {
 export const checkIsInRange = (dateStr, startDate, endDate) => {
     if (!dateStr || !endDate) return false;
     try {
-        const current = new Date(dateStr.replace(/-/g, '/')).getTime();
-        const end = new Date(endDate.replace(/-/g, '/')).getTime();
-        if (!startDate) return current === end;
-        const start = new Date(startDate.replace(/-/g, '/')).getTime();
+        const normalize = (d) => {
+            if (!d || typeof d !== 'string' || d.trim() === "") return null;
+            const date = new Date(d.trim().replace(/-/g, '/'));
+            date.setHours(0, 0, 0, 0);
+            return date.getTime();
+        };
+
+        const current = normalize(dateStr);
+        const end = normalize(endDate);
+        const start = normalize(startDate);
+
+        if (!start) {
+            // 規則 1：若無開始日期（null 或 ""），僅在到期日當天顯示
+            return current === end;
+        }
+
+        // 規則 2：若有開始日期，在開始日期至到期日範圍內顯示
         return current >= start && current <= end;
-    } catch (e) { return false; }
+    } catch (e) {
+        console.error('Date Check Error:', e);
+        return false;
+    }
 };
 
 export const getCalendarDays = (year, month) => {

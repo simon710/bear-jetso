@@ -15,6 +15,8 @@ export const refreshData = async (currentDb, setDiscounts) => {
 
         return {
             ...item,
+            startDate: (item.startDate && item.startDate.trim() !== "") ? item.startDate : null,
+            expiryDate: (item.expiryDate && item.expiryDate.trim() !== "") ? item.expiryDate : null,
             images: parsedImages,
             discountCodes: parsedCodes
         };

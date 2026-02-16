@@ -45,20 +45,31 @@ const Community = () => {
     }, []);
 
     const getSortedPosts = () => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
         return [...posts].sort((a, b) => {
-            const idA = parseInt(a.id) || 0;
-            const idB = parseInt(b.id) || 0;
-            if (communitySort === 'newest') return idB - idA;
-            if (communitySort === 'oldest') return idA - idB;
-            if (communitySort === 'expirySoon') {
+            const timeA = a.createdAt || 0;
+            const timeB = b.createdAt || 0;
+
+            if (communitySort === 'newest') return timeB - timeA;
+            if (communitySort === 'oldest') return timeA - timeB;
+
+            // Date-based sorting with range priority
+            if (communitySort === 'expirySoon' || communitySort === 'expiryLate') {
+                const aStartDate = a.startDate ? new Date(a.startDate.replace(/-/g, '/')) : null;
+                const bStartDate = b.startDate ? new Date(b.startDate.replace(/-/g, '/')) : null;
+                const aInRange = aStartDate && aStartDate <= today;
+                const bInRange = bStartDate && bStartDate <= today;
+
+                const sortDir = communitySort === 'expirySoon' ? 1 : -1;
+
+                if (aInRange && !bInRange) return -1;
+                if (!aInRange && bInRange) return 1;
+
                 const dateA = new Date(a.expiryDate?.replace(/-/g, '/'));
                 const dateB = new Date(b.expiryDate?.replace(/-/g, '/'));
-                return dateA - dateB;
-            }
-            if (communitySort === 'expiryLate') {
-                const dateA = new Date(a.expiryDate?.replace(/-/g, '/'));
-                const dateB = new Date(b.expiryDate?.replace(/-/g, '/'));
-                return dateB - dateA;
+                return (dateA - dateB) * sortDir;
             }
             return 0;
         });

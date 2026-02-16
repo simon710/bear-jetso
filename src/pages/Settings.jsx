@@ -314,13 +314,13 @@ const Settings = ({ handleTestNotification }) => {
             for (const item of restoredDiscounts) {
                 await db.run(`
                     INSERT INTO discounts (
-                        uid, title, content, expiryDate, images, discountCodes, link, status, usedAt, createdAt,
+                        uid, title, content, startDate, expiryDate, images, discountCodes, link, status, usedAt, createdAt,
                         notify_1m_weekly, notify_last_7d_daily, is_notify_enabled, category, notif_hour, notif_min,
                         is_community_shared, sharedAt, is_readonly
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `, [
                     item.uid || null,
-                    item.title, item.content, item.expiryDate,
+                    item.title, item.content, item.startDate || null, item.expiryDate,
                     JSON.stringify(item.images || []),
                     JSON.stringify(item.discountCodes || ['']),
                     item.link || '', item.status || 'active', item.usedAt || null, item.createdAt || new Date().toISOString(),

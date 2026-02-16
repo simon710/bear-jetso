@@ -387,7 +387,7 @@ const App = () => {
           const params = [itemUid, formData.title, formData.content, formData.startDate, formData.expiryDate, imagesJson, JSON.stringify(formData.discountCodes), formData.link, formData.notify_1m_weekly, formData.notify_last_7d_daily, formData.is_notify_enabled, formData.category, formData.notif_hour, formData.notif_min, formData.is_community_shared, selectedItem.id];
           await db.run(sql, params);
         } else {
-          const sql = `INSERT INTO discounts (uid, title, content, startDate, expiryDate, images, discountCodes, link, status, createdAt, notify_1m_weekly, notify_last_7d_daily, is_notify_enabled, category, notif_hour, notif_min, is_community_shared) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+          const sql = `INSERT INTO discounts (uid, title, content, startDate, expiryDate, images, discountCodes, link, status, createdAt, notify_1m_weekly, notify_last_7d_daily, is_notify_enabled, category, notif_hour, notif_min, is_community_shared) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
           const params = [itemUid, formData.title, formData.content, formData.startDate, formData.expiryDate, imagesJson, JSON.stringify(formData.discountCodes), formData.link, 'active', new Date().toISOString(), formData.notify_1m_weekly, formData.notify_last_7d_daily, formData.is_notify_enabled, formData.category, formData.notif_hour, formData.notif_min, formData.is_community_shared];
           await db.run(sql, params);
         }

@@ -17,12 +17,40 @@ const Home = () => {
         return [...discounts]
             .filter(d => getStatus(d) === homeFilter)
             .sort((a, b) => {
-                const dateA = new Date(a.expiryDate.replace(/-/g, '/'));
-                const dateB = new Date(b.expiryDate.replace(/-/g, '/'));
-                if (dateA - dateB !== 0) {
-                    return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+                let valA, valB;
+                let primaryOrder = sortOrder;
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                if (homeFilter === 'scheduled') {
+                    // Scheduled: Sort by startDate ASC (default) or DESC
+                    valA = new Date((a.startDate || a.expiryDate).replace(/-/g, '/'));
+                    valB = new Date((b.startDate || b.expiryDate).replace(/-/g, '/'));
+                } else if (homeFilter === 'expired') {
+                    // Expired: Sort by expiryDate DESC (default) or ASC
+                    valA = new Date(a.expiryDate.replace(/-/g, '/'));
+                    valB = new Date(b.expiryDate.replace(/-/g, '/'));
+                    primaryOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+                } else {
+                    // Active / Used
+                    // Priority: In-range (has startDate and is currently active)
+                    const aStartDate = a.startDate ? new Date(a.startDate.replace(/-/g, '/')) : null;
+                    const bStartDate = b.startDate ? new Date(b.startDate.replace(/-/g, '/')) : null;
+
+                    const aInRange = aStartDate && aStartDate <= today;
+                    const bInRange = bStartDate && bStartDate <= today;
+
+                    if (aInRange && !bInRange) return -1;
+                    if (!aInRange && bInRange) return 1;
+
+                    valA = new Date(a.expiryDate.replace(/-/g, '/'));
+                    valB = new Date(b.expiryDate.replace(/-/g, '/'));
                 }
-                return sortOrder === 'asc' ? a.id - b.id : b.id - a.id;
+
+                if (valA - valB !== 0) {
+                    return primaryOrder === 'asc' ? valA - valB : valB - valA;
+                }
+                return primaryOrder === 'asc' ? a.id - b.id : b.id - a.id;
             });
     }, [discounts, homeFilter, sortOrder]);
 
