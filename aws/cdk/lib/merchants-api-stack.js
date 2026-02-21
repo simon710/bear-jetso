@@ -235,6 +235,17 @@ class MerchantsApiStack extends Stack {
         sync.addResource('backup').addMethod('POST', new apigateway.LambdaIntegration(syncFunction));
         sync.addResource('restore').addMethod('GET', new apigateway.LambdaIntegration(syncFunction));
 
+        // Admin Routes
+        const admin = api.root.addResource('admin');
+        const adminUsers = admin.addResource('users');
+        adminUsers.addMethod('GET', new apigateway.LambdaIntegration(profileFunction));
+
+        const adminUserItem = adminUsers.addResource('{id}');
+        adminUserItem.addResource('suspend').addMethod('POST', new apigateway.LambdaIntegration(profileFunction));
+
+        // Community Suspend
+        communityItem.addResource('suspend').addMethod('POST', new apigateway.LambdaIntegration(communityFunction));
+
         // Outputs
         new CfnOutput(this, 'ApiUrl', { value: api.url });
         new CfnOutput(this, 'TableName', { value: merchantsTable.tableName });

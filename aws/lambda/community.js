@@ -25,26 +25,53 @@ exports.handler = async (event) => {
     };
 
     try {
-        // GET /community - List shared discounts
+        // GET /community - List shared discounts with pagination
         if (httpMethod === 'GET' && path === '/community') {
+            const isAdmin = event.queryStringParameters?.admin === 'true';
             const today = new Date().toISOString().split('T')[0];
-            const data = await docClient.send(new ScanCommand({
-                TableName: COMMUNITY_TABLE,
-                FilterExpression: "reports < :val AND expiryDate >= :today",
-                ExpressionAttributeValues: {
-                    ":val": 10,
-                    ":today": today
+            const limit = parseInt(event.queryStringParameters?.limit) || 10;
+            const lastKey = event.queryStringParameters?.lastKey ?
+                JSON.parse(Buffer.from(event.queryStringParameters.lastKey, 'base64').toString()) : null;
+
+            let items = [];
+            let currentLastKey = lastKey;
+
+            // Keep scanning until we have enough items or we've reached the end
+            let scanCount = 0;
+            while (items.length < limit && scanCount < 5) {
+                const params = {
+                    TableName: COMMUNITY_TABLE,
+                    Limit: limit * 2
+                };
+
+                // Admin sees everything, normal users only see low reports and non-expired
+                if (!isAdmin) {
+                    params.FilterExpression = "reports < :val AND expiryDate >= :today AND suspended <> :true";
+                    params.ExpressionAttributeValues = {
+                        ":val": 10,
+                        ":today": today,
+                        ":true": true
+                    };
                 }
-            }));
 
-            let items = (data.Items || []).sort((a, b) => b.createdAt - a.createdAt);
+                if (currentLastKey) {
+                    params.ExclusiveStartKey = currentLastKey;
+                }
 
-            // Fetch latest user profiles to ensure avatars/nicknames are up-to-date
+                const data = await docClient.send(new ScanCommand(params));
+                items = [...items, ...(data.Items || [])];
+                currentLastKey = data.LastEvaluatedKey;
+                scanCount++;
+
+                if (!currentLastKey) break;
+            }
+
+            items = items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, limit);
+
+            // ... (rest of user profile fetching)
             const userIds = [...new Set(items.map(i => i.userId).filter(id => !!id))];
-
             if (userIds.length > 0) {
                 const profilesMap = {};
-
                 for (let i = 0; i < userIds.length; i += 100) {
                     const batch = userIds.slice(i, i + 100);
                     const batchResponse = await docClient.send(new BatchGetCommand({
@@ -54,11 +81,8 @@ exports.handler = async (event) => {
                             }
                         }
                     }));
-
                     const batchUsers = batchResponse.Responses[USERS_TABLE] || [];
-                    batchUsers.forEach(u => {
-                        profilesMap[u.userId] = u;
-                    });
+                    batchUsers.forEach(u => { profilesMap[u.userId] = u; });
                 }
 
                 items = items.map(item => {
@@ -78,9 +102,29 @@ exports.handler = async (event) => {
             return {
                 statusCode: 200,
                 headers,
-                body: JSON.stringify(items)
+                body: JSON.stringify({
+                    items,
+                    lastKey: currentLastKey ? Buffer.from(JSON.stringify(currentLastKey)).toString('base64') : null
+                })
             };
         }
+
+        // POST /community/{id}/suspend
+        if (httpMethod === 'POST' && path.endsWith('/suspend')) {
+            const id = pathParameters.id;
+            const bodyData = JSON.parse(body || '{}');
+            const suspended = bodyData.suspended !== false;
+
+            await docClient.send(new UpdateCommand({
+                TableName: COMMUNITY_TABLE,
+                Key: { id },
+                UpdateExpression: "SET suspended = :s",
+                ExpressionAttributeValues: { ":s": suspended },
+                ReturnValues: "ALL_NEW"
+            }));
+            return { statusCode: 200, headers, body: JSON.stringify({ success: true, suspended }) };
+        }
+
 
         // POST /community - Share a discount
         if (httpMethod === 'POST' && path === '/community') {

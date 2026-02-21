@@ -1,14 +1,14 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, GetCommand, PutCommand } = require("@aws-sdk/lib-dynamodb");
+const { DynamoDBDocumentClient, GetCommand, PutCommand, ScanCommand, UpdateCommand } = require("@aws-sdk/lib-dynamodb");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 
-const client = new DynamoDBClient({});
+const client = new DynamoDBClient({ region: "ap-southeast-1" });
 const docClient = DynamoDBDocumentClient.from(client);
-const s3Client = new S3Client({});
+const s3Client = new S3Client({ region: "ap-southeast-1" });
 
 const USERS_TABLE = process.env.USERS_TABLE;
 const UPLOAD_BUCKET = process.env.UPLOAD_BUCKET;
-const ASSETS_DOMAIN = 'bigfootws.com';
+const ASSETS_DOMAIN = 'assets.bigfootws.com';
 
 function transformAvatarUrl(url) {
     if (!url) return url;
@@ -18,6 +18,7 @@ function transformAvatarUrl(url) {
     return url;
 }
 
+// ... async function uploadToS3 ... (omitted for brevity as not used in suspend)
 async function uploadToS3(base64Data, userId) {
     const base64Image = base64Data.replace(/^data:image\/\w+;base64,/, "");
     const buffer = Buffer.from(base64Image, 'base64');
@@ -34,6 +35,7 @@ async function uploadToS3(base64Data, userId) {
 }
 
 exports.handler = async (event) => {
+    console.log("Incoming event:", JSON.stringify(event));
     const { httpMethod, path, pathParameters, body } = event;
     const headers = {
         "Access-Control-Allow-Origin": "*",
@@ -43,7 +45,7 @@ exports.handler = async (event) => {
 
     try {
         // GET /profile/{userId}
-        if (httpMethod === 'GET' && pathParameters && pathParameters.id) {
+        if (httpMethod === 'GET' && pathParameters && pathParameters.id && path.includes('/profile')) {
             const userId = pathParameters.id;
             const data = await docClient.send(new GetCommand({
                 TableName: USERS_TABLE,
@@ -71,7 +73,7 @@ exports.handler = async (event) => {
         }
 
         // POST /profile - Create or update profile
-        if (httpMethod === 'POST') {
+        if (httpMethod === 'POST' && (!path || path === '/profile')) {
             const userData = JSON.parse(body);
             const { userId, avatarData, ...rest } = userData;
             if (!userId) {
@@ -110,14 +112,62 @@ exports.handler = async (event) => {
             };
         }
 
-        return { statusCode: 404, headers, body: JSON.stringify({ message: "Not Found" }) };
+        // DEBUG: Return env vars in body if hitting specific path
+        if (httpMethod === 'POST' && path && path.includes('/suspend')) {
+            const userId = pathParameters ? pathParameters.id : null;
+            if (!userId) {
+                return { statusCode: 400, headers, body: JSON.stringify({ message: "userId is required" }) };
+            }
+            const bodyData = JSON.parse(body || '{}');
+            const suspended = bodyData.suspended !== false;
+
+            console.log(`Updating user ${userId} to suspended=${suspended} in table ${USERS_TABLE}`);
+
+            const res = await docClient.send(new UpdateCommand({
+                TableName: USERS_TABLE,
+                Key: { userId },
+                UpdateExpression: "SET suspended = :s, updatedAt = :now",
+                ExpressionAttributeValues: {
+                    ":s": suspended,
+                    ":now": Date.now()
+                },
+                ReturnValues: "ALL_NEW"
+            }));
+
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({
+                    success: true,
+                    suspended: res.Attributes.suspended,
+                    debug: {
+                        table: USERS_TABLE,
+                        userId: userId,
+                        region: process.env.AWS_REGION
+                    }
+                })
+            };
+        }
+
+        // Re-implement GET /admin/users for backward compatibility check
+        if (httpMethod === 'GET' && path && (path.endsWith('/admin/users') || path.endsWith('/users'))) {
+            const data = await docClient.send(new ScanCommand({
+                TableName: USERS_TABLE
+            }));
+            const items = (data.Items || []).map(item => ({
+                ...item,
+                avatar: transformAvatarUrl(item.avatar)
+            }));
+            return { statusCode: 200, headers, body: JSON.stringify(items) };
+        }
+
+        return { statusCode: 404, headers, body: JSON.stringify({ message: "Not Found", path }) };
 
     } catch (error) {
-        console.error(error);
         return {
             statusCode: 500,
             headers,
-            body: JSON.stringify({ message: error.message })
+            body: JSON.stringify({ message: error.message, stack: error.stack })
         };
     }
 };

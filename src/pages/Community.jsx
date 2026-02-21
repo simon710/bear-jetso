@@ -11,6 +11,9 @@ const Community = () => {
     const [posts, setPosts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [communitySort, setCommunitySort] = useState('newest');
+    const [lastKey, setLastKey] = useState(null);
+    const [hasMore, setHasMore] = useState(true);
+    const [isFetchingMore, setIsFetchingMore] = useState(false);
 
     const [pullDistance, setPullDistance] = useState(0);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -20,21 +23,45 @@ const Community = () => {
 
     const API_URL = import.meta.env.VITE_MERCHANTS_API_URL || 'https://api.bigfootws.com';
 
-    const fetchPosts = async (isManualRefresh = false) => {
-        if (isManualRefresh) setIsRefreshing(true);
-        else setIsLoading(true);
+    const fetchPosts = async (isManualRefresh = false, loadingMore = false) => {
+        if (loadingMore && (isFetchingMore || !hasMore)) return;
+
+        if (isManualRefresh) {
+            setIsRefreshing(true);
+            setLastKey(null);
+        } else if (loadingMore) {
+            setIsFetchingMore(true);
+        } else {
+            setIsLoading(true);
+        }
 
         try {
-            const response = await fetch(`${API_URL}/community`);
+            const currentLastKey = isManualRefresh ? null : (loadingMore ? lastKey : null);
+            const url = `${API_URL}/community?limit=10${currentLastKey ? `&lastKey=${currentLastKey}` : ''}`;
+
+            const response = await fetch(url);
             if (response.ok) {
                 const data = await response.json();
-                setPosts(data);
+
+                // Backward compatibility: check if data is an array or an object with items
+                const newItems = Array.isArray(data) ? data : (data.items || []);
+                const nextKey = Array.isArray(data) ? null : data.lastKey;
+
+                if (isManualRefresh || !loadingMore) {
+                    setPosts(newItems);
+                } else {
+                    setPosts(prev => [...prev, ...newItems]);
+                }
+
+                setLastKey(nextKey);
+                setHasMore(!!nextKey);
             }
         } catch (error) {
             console.error('Fetch error:', error);
             notify('無法載入社群內容');
         } finally {
             setIsLoading(false);
+            setIsFetchingMore(false);
             if (isManualRefresh) setIsRefreshing(false);
             setPullDistance(0);
         }
@@ -43,6 +70,24 @@ const Community = () => {
     useEffect(() => {
         fetchPosts(false);
     }, []);
+
+    // Scroll listener for infinite scroll
+    useEffect(() => {
+        const handleScroll = () => {
+            if (!containerRef.current || isLoading || isFetchingMore || !hasMore) return;
+
+            const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+            if (scrollHeight - scrollTop - clientHeight < 100) {
+                fetchPosts(false, true);
+            }
+        };
+
+        const container = containerRef.current;
+        if (container) {
+            container.addEventListener('scroll', handleScroll);
+            return () => container.removeEventListener('scroll', handleScroll);
+        }
+    }, [isLoading, isFetchingMore, hasMore, lastKey]);
 
     const getSortedPosts = () => {
         const today = new Date();
@@ -244,6 +289,19 @@ const Community = () => {
                             </div>
                         ))}
                     </div>
+                </div>
+            )}
+
+            {/* Bottom loading indicator for pagination */}
+            {isFetchingMore && (
+                <div className="flex justify-center py-6">
+                    <div className="w-8 h-8 border-4 border-gray-100 border-t-pink-400 rounded-full animate-spin" />
+                </div>
+            )}
+
+            {!hasMore && posts.length > 0 && (
+                <div className="text-center py-8 opacity-20 text-[10px] font-black uppercase tracking-widest">
+                    已經到底了 🐻
                 </div>
             )}
         </div>
