@@ -1,0 +1,183 @@
+﻿{
+    "items": [
+        {
+            "id": "1e4hld",
+            "parentId": "coemysbf8d",
+            "pathPart": "profile",
+            "path": "/profile",
+            "resourceMethods": {
+                "GET": {},
+                "OPTIONS": {},
+                "POST": {}
+            }
+        },
+        {
+            "id": "2ny3i2",
+            "parentId": "8b0tfh",
+            "pathPart": "{id}",
+            "path": "/community/{id}",
+            "resourceMethods": {
+                "OPTIONS": {}
+            }
+        },
+        {
+            "id": "489lvd",
+            "parentId": "82hk03",
+            "pathPart": "restore",
+            "path": "/sync/restore",
+            "resourceMethods": {
+                "GET": {},
+                "OPTIONS": {}
+            }
+        },
+        {
+            "id": "4tb8u3",
+            "parentId": "coemysbf8d",
+            "pathPart": "ocr",
+            "path": "/ocr",
+            "resourceMethods": {
+                "OPTIONS": {},
+                "POST": {}
+            }
+        },
+        {
+            "id": "82hk03",
+            "parentId": "coemysbf8d",
+            "pathPart": "sync",
+            "path": "/sync",
+            "resourceMethods": {
+                "OPTIONS": {}
+            }
+        },
+        {
+            "id": "8b0tfh",
+            "parentId": "coemysbf8d",
+            "pathPart": "community",
+            "path": "/community",
+            "resourceMethods": {
+                "GET": {},
+                "OPTIONS": {},
+                "POST": {}
+            }
+        },
+        {
+            "id": "97tjos",
+            "parentId": "2ny3i2",
+            "pathPart": "unlike",
+            "path": "/community/{id}/unlike",
+            "resourceMethods": {
+                "OPTIONS": {},
+                "POST": {}
+            }
+        },
+        {
+            "id": "c6abwo",
+            "parentId": "kn9a4m",
+            "pathPart": "{id}",
+            "path": "/merchants/{id}",
+            "resourceMethods": {
+                "GET": {},
+                "OPTIONS": {},
+                "PUT": {}
+            }
+        },
+        {
+            "id": "coemysbf8d",
+            "path": "/",
+            "resourceMethods": {
+                "OPTIONS": {}
+            }
+        },
+        {
+            "id": "dn94hj",
+            "parentId": "u8l9eg",
+            "pathPart": "{id}",
+            "path": "/admin/users/{id}"
+        },
+        {
+            "id": "hrsbx5",
+            "parentId": "2ny3i2",
+            "pathPart": "suspend",
+            "path": "/community/{id}/suspend",
+            "resourceMethods": {
+                "POST": {}
+            }
+        },
+        {
+            "id": "k53zjy",
+            "parentId": "1e4hld",
+            "pathPart": "{id}",
+            "path": "/profile/{id}",
+            "resourceMethods": {
+                "GET": {},
+                "OPTIONS": {}
+            }
+        },
+        {
+            "id": "kn9a4m",
+            "parentId": "coemysbf8d",
+            "pathPart": "merchants",
+            "path": "/merchants",
+            "resourceMethods": {
+                "GET": {},
+                "OPTIONS": {},
+                "POST": {}
+            }
+        },
+        {
+            "id": "rtfrg2",
+            "parentId": "2ny3i2",
+            "pathPart": "like",
+            "path": "/community/{id}/like",
+            "resourceMethods": {
+                "OPTIONS": {},
+                "POST": {}
+            }
+        },
+        {
+            "id": "u8l9eg",
+            "parentId": "y2frlg",
+            "pathPart": "users",
+            "path": "/admin/users",
+            "resourceMethods": {
+                "GET": {}
+            }
+        },
+        {
+            "id": "vxu8aj",
+            "parentId": "2ny3i2",
+            "pathPart": "report",
+            "path": "/community/{id}/report",
+            "resourceMethods": {
+                "OPTIONS": {},
+                "POST": {}
+            }
+        },
+        {
+            "id": "y2frlg",
+            "parentId": "coemysbf8d",
+            "pathPart": "admin",
+            "path": "/admin"
+        },
+        {
+            "id": "zhg8gg",
+            "parentId": "dn94hj",
+            "pathPart": "suspend",
+            "path": "/admin/users/{id}/suspend",
+            "resourceMethods": {
+                "OPTIONS": {},
+                "POST": {}
+            }
+        },
+        {
+            "id": "zswki8",
+            "parentId": "82hk03",
+            "pathPart": "backup",
+            "path": "/sync/backup",
+            "resourceMethods": {
+                "OPTIONS": {},
+                "POST": {}
+            }
+        }
+    ]
+}

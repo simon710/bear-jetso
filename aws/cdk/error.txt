@@ -1,0 +1,20 @@
+[WARNING] aws-cdk-lib.aws_dynamodb.TableOptions#pointInTimeRecovery is deprecated.
+  use `pointInTimeRecoverySpecification` instead
+  This API will be removed in the next major release.
+c:\Users\Simon\Desktop\AI Project\bear_jetso\aws\cdk\node_modules\constructs\lib\construct.js:372
+            throw new Error(`There is already a Construct with name '${childName}' in ${typeName}${name.length > 0 ? ' [' + name + ']' : ''}`);
+            ^
+
+Error: There is already a Construct with name 'OPTIONS' in Resource2 [users]
+    at Node.addChild (c:\Users\Simon\Desktop\AI Project\bear_jetso\aws\cdk\node_modules\constructs\lib\construct.js:372:19)
+    at new Node (c:\Users\Simon\Desktop\AI Project\bear_jetso\aws\cdk\node_modules\constructs\lib\construct.js:33:21)
+    at new Construct (c:\Users\Simon\Desktop\AI Project\bear_jetso\aws\cdk\node_modules\constructs\lib\construct.js:423:21)
+    at new Resource2 (c:\Users\Simon\Desktop\AI Project\bear_jetso\aws\cdk\node_modules\aws-cdk-lib\core\lib\resource.js:1:4532)
+    at new Method2 (c:\Users\Simon\Desktop\AI Project\bear_jetso\aws\cdk\node_modules\aws-cdk-lib\aws-apigateway\lib\method.js:1:7547)
+    at new Method2 (c:\Users\Simon\Desktop\AI Project\bear_jetso\aws\cdk\node_modules\aws-cdk-lib\core\lib\prop-injectable.js:1:681)
+    at WrappedClass.addMethod (c:\Users\Simon\Desktop\AI Project\bear_jetso\aws\cdk\node_modules\aws-cdk-lib\aws-apigateway\lib\resource.js:1:3504)
+    at WrappedClass.addCorsPreflight (c:\Users\Simon\Desktop\AI Project\bear_jetso\aws\cdk\node_modules\aws-cdk-lib\aws-apigateway\lib\resource.js:1:5928)
+    at new MerchantsApiStack (c:\Users\Simon\Desktop\AI Project\bear_jetso\aws\cdk\lib\merchants-api-stack.js:242:20)
+    at Object.<anonymous> (c:\Users\Simon\Desktop\AI Project\bear_jetso\aws\cdk\bin\app.js:7:1)
+
+Node.js v22.18.0

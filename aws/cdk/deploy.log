@@ -1,0 +1,37 @@
+[WARNING] aws-cdk-lib.aws_dynamodb.TableOptions#pointInTimeRecovery is deprecated.
+  use `pointInTimeRecoverySpecification` instead
+  This API will be removed in the next major release.
+
+✨  Synthesis time: 2.02s
+
+BearJetsoMerchantsApiStack: deploying... [1/1]
+BearJetsoMerchantsApiStack: creating CloudFormation changeset...
+BearJetsoMerchantsApiStack |  0/74 | 下午2:07:45 | UPDATE_IN_PROGRESS   | AWS::CloudFormation::Stack       | BearJetsoMerchantsApiStack User Initiated
+BearJetsoMerchantsApiStack |  0/74 | 下午2:07:50 | CREATE_IN_PROGRESS   | AWS::ApiGateway::Resource        | MerchantsApi/Default/community/{id}/suspend (MerchantsApicommunityidsuspendC5252142) 
+BearJetsoMerchantsApiStack |  0/74 | 下午2:07:51 | CREATE_IN_PROGRESS   | AWS::ApiGateway::Resource        | MerchantsApi/Default/admin (MerchantsApiadminA40BA50B) 
+BearJetsoMerchantsApiStack |  0/74 | 下午2:07:51 | CREATE_FAILED        | AWS::ApiGateway::Resource        | MerchantsApi/Default/community/{id}/suspend (MerchantsApicommunityidsuspendC5252142) Resource handler returned message: "Another resource with the same parent already has this name: suspend (Service: ApiGateway, Status Code: 409, Request ID: dcdc8280-af72-4af4-80ca-c8e4b8f26e13) (SDK Attempt Count: 1)" (RequestToken: fd73c039-6724-95e5-5462-9705e534df4f, HandlerErrorCode: AlreadyExists)
+BearJetsoMerchantsApiStack |  0/74 | 下午2:07:51 | CREATE_FAILED        | AWS::ApiGateway::Resource        | MerchantsApi/Default/admin (MerchantsApiadminA40BA50B) Resource handler returned message: "Another resource with the same parent already has this name: admin (Service: ApiGateway, Status Code: 409, Request ID: 7f4e0288-5372-4616-8508-53d4d7f95e26) (SDK Attempt Count: 1)" (RequestToken: 189195e5-c407-ce45-053c-c4b05568fafa, HandlerErrorCode: AlreadyExists)
+BearJetsoMerchantsApiStack |  0/74 | 下午2:07:52 | UPDATE_ROLLBACK_IN_P | AWS::CloudFormation::Stack       | BearJetsoMerchantsApiStack The following resource(s) failed to create: [MerchantsApicommunityidsuspendC5252142, MerchantsApiadminA40BA50B]. 
+BearJetsoMerchantsApiStack |  1/74 | 下午2:07:56 | UPDATE_ROLLBACK_COMP | AWS::CloudFormation::Stack       | BearJetsoMerchantsApiStack 
+BearJetsoMerchantsApiStack |  2/74 | 下午2:10:18 | DELETE_COMPLETE      | AWS::ApiGateway::Resource        | MerchantsApi/Default/community/{id}/suspend (MerchantsApicommunityidsuspendC5252142) 
+BearJetsoMerchantsApiStack |  3/74 | 下午2:10:28 | DELETE_COMPLETE      | AWS::ApiGateway::Resource        | MerchantsApi/Default/admin (MerchantsApiadminA40BA50B) 
+BearJetsoMerchantsApiStack |  4/74 | 下午2:10:29 | UPDATE_ROLLBACK_COMP | AWS::CloudFormation::Stack       | BearJetsoMerchantsApiStack 
+
+Failed resources:
+BearJetsoMerchantsApiStack | 下午2:07:51 | CREATE_FAILED        | AWS::ApiGateway::Resource        | MerchantsApi/Default/community/{id}/suspend (MerchantsApicommunityidsuspendC5252142) Resource handler returned message: "Another resource with the same parent already has this name: suspend (Service: ApiGateway, Status Code: 409, Request ID: dcdc8280-af72-4af4-80ca-c8e4b8f26e13) (SDK Attempt Count: 1)" (RequestToken: fd73c039-6724-95e5-5462-9705e534df4f, HandlerErrorCode: AlreadyExists)
+BearJetsoMerchantsApiStack | 下午2:07:51 | CREATE_FAILED        | AWS::ApiGateway::Resource        | MerchantsApi/Default/admin (MerchantsApiadminA40BA50B) Resource handler returned message: "Another resource with the same parent already has this name: admin (Service: ApiGateway, Status Code: 409, Request ID: 7f4e0288-5372-4616-8508-53d4d7f95e26) (SDK Attempt Count: 1)" (RequestToken: 189195e5-c407-ce45-053c-c4b05568fafa, HandlerErrorCode: AlreadyExists)
+
+NOTICES         (What's this? https://github.com/aws/aws-cdk/wiki/CLI-Notices)
+
+37013	(cli) cdk watch triggers deployment unexpectedly or not at all
+
+	Overview: Do not use 'cdk watch' with this version of the cdk cli.
+	          Upgrade to ^2.1106.0.
+
+	Affected versions: cli: >=2.1103.0 <2.1106.0
+
+	More information at: https://github.com/aws/aws-cdk/issues/37013
+
+
+If you don’t want to see a notice anymore, use "cdk acknowledge <id>". For example, "cdk acknowledge 37013".
+❌  BearJetsoMerchantsApiStack failed: ToolkitError: The stack named BearJetsoMerchantsApiStack failed to deploy: UPDATE_ROLLBACK_COMPLETE: Resource handler returned message: "Another resource with the same parent already has this name: suspend (Service: ApiGateway, Status Code: 409, Request ID: dcdc8280-af72-4af4-80ca-c8e4b8f26e13) (SDK Attempt Count: 1)" (RequestToken: fd73c039-6724-95e5-5462-9705e534df4f, HandlerErrorCode: AlreadyExists), Resource handler returned message: "Another resource with the same parent already has this name: admin (Service: ApiGateway, Status Code: 409, Request ID: 7f4e0288-5372-4616-8508-53d4d7f95e26) (SDK Attempt Count: 1)" (RequestToken: 189195e5-c407-ce45-053c-c4b05568fafa, HandlerErrorCode: AlreadyExists)

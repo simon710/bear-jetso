@@ -4,6 +4,7 @@
 .pnp.js
 /aws/lambda/node_modules
 /admin/node_modules
+/aws_backup
 
 # production / build
 /build
