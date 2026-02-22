@@ -37,15 +37,44 @@ const DiscountForm = ({ onSave }) => {
     }, []);
 
     const handleFileUpload = async (e) => {
-        const file = e.target.files[0];
-        if (file) {
+        const files = Array.from(e.target.files);
+        if (files.length > 0) {
+            const currentImagesCount = formData.images?.length || 0;
+            const remaining = 3 - currentImagesCount;
+
+            if (remaining <= 0) {
+                notify('最多只能上傳 3 張圖片');
+                return;
+            }
+
+            const filesToProcess = files.slice(0, remaining);
+            if (files.length > remaining) {
+                notify(`最多只能上傳 3 張圖片，已為您選取前 ${remaining} 張`);
+            }
+
             notify('正在壓縮圖片...📸');
-            const reader = new FileReader();
-            reader.onloadend = async () => {
-                const compressed = await compressImage(reader.result);
-                setFormData(prev => ({ ...prev, images: [...(prev.images || []), compressed] }));
-            };
-            reader.readAsDataURL(file);
+            const processedImages = [];
+
+            for (const file of filesToProcess) {
+                await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = async () => {
+                        try {
+                            const compressed = await compressImage(reader.result);
+                            processedImages.push(compressed);
+                        } catch (err) {
+                            console.error('Compression error:', err);
+                        }
+                        resolve();
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            if (processedImages.length > 0) {
+                setFormData(prev => ({ ...prev, images: [...(prev.images || []), ...processedImages] }));
+                notify('圖片已添加！✨');
+            }
         }
     };
 
@@ -155,19 +184,46 @@ const DiscountForm = ({ onSave }) => {
                 return;
             }
 
-            notify('正在處理圖片...📸');
+            const currentImagesCount = formData.images?.length || 0;
+            const remaining = 3 - currentImagesCount;
 
-            const image = await Camera.getPhoto({
-                quality: 90,
-                allowEditing: false,
-                resultType: CameraResultType.DataUrl,
-                source: source
-            });
+            if (remaining <= 0) {
+                notify('最多只能上傳 3 張圖片');
+                return;
+            }
 
-            if (image.dataUrl) {
-                const compressed = await compressImage(image.dataUrl);
-                setFormData(prev => ({ ...prev, images: [...(prev.images || []), compressed] }));
-                notify('圖片已添加！✨');
+            if (source === CameraSource.Photos) {
+                // 使用 pickImages 進行多選
+                const result = await Camera.pickImages({
+                    quality: 90,
+                    limit: remaining
+                });
+
+                if (result.photos && result.photos.length > 0) {
+                    notify('正在處理圖片...📸');
+                    const processedImages = [];
+                    for (const photo of result.photos) {
+                        const compressed = await compressImage(photo.webPath);
+                        processedImages.push(compressed);
+                    }
+                    setFormData(prev => ({ ...prev, images: [...(prev.images || []), ...processedImages] }));
+                    notify('圖片已添加！✨');
+                }
+            } else {
+                // 普通拍照
+                notify('正在處理圖片...📸');
+                const image = await Camera.getPhoto({
+                    quality: 90,
+                    allowEditing: false,
+                    resultType: CameraResultType.DataUrl,
+                    source: source
+                });
+
+                if (image.dataUrl) {
+                    const compressed = await compressImage(image.dataUrl);
+                    setFormData(prev => ({ ...prev, images: [...(prev.images || []), compressed] }));
+                    notify('圖片已添加！✨');
+                }
             }
         } catch (error) {
             console.error('Camera error:', error);
@@ -360,7 +416,7 @@ const DiscountForm = ({ onSave }) => {
                         </button>
                     )}
                 </div>
-                <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" capture="environment" />
+                <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" multiple />
             </div>
 
             {/* Image Source Modal */}

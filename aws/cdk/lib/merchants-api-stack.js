@@ -241,10 +241,12 @@ class MerchantsApiStack extends Stack {
         adminUsers.addMethod('GET', new apigateway.LambdaIntegration(profileFunction));
 
         const adminUserItem = adminUsers.addResource('{id}');
-        adminUserItem.addResource('suspend').addMethod('POST', new apigateway.LambdaIntegration(profileFunction));
+        const adminUserSuspend = adminUserItem.addResource('suspend');
+        adminUserSuspend.addMethod('POST', new apigateway.LambdaIntegration(profileFunction));
 
         // Community Suspend
-        communityItem.addResource('suspend').addMethod('POST', new apigateway.LambdaIntegration(communityFunction));
+        const communitySuspend = communityItem.addResource('suspend');
+        communitySuspend.addMethod('POST', new apigateway.LambdaIntegration(communityFunction));
 
         // Outputs
         new CfnOutput(this, 'ApiUrl', { value: api.url });

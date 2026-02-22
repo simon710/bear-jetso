@@ -116,3 +116,63 @@ export const rescheduleAllNotifications = async (discounts, notifTime) => {
 
     console.log(`🐻 [Notifications] Rescheduled ${activeDiscounts.length} active discounts`);
 };
+
+/**
+ * 計算下一次提醒的時間
+ */
+export const getNextReminder = (item, notifTime) => {
+    if (!item.is_notify_enabled || item.status === 'used' || checkIsExpired(item.expiryDate)) return null;
+
+    const hr = item.notif_hour || notifTime.hour;
+    const min = item.notif_min || notifTime.min;
+    const now = new Date();
+
+    const expiryDate = new Date(item.expiryDate.replace(/-/g, '/'));
+    expiryDate.setHours(parseInt(hr), parseInt(min), 0);
+
+    const startDate = item.startDate ? new Date(item.startDate.replace(/-/g, '/')) : null;
+    if (startDate) startDate.setHours(parseInt(hr), parseInt(min), 0);
+
+    const possibleDates = [];
+
+    // 1. 到期日當天
+    if (expiryDate > now) possibleDates.push(expiryDate);
+
+    // 2. 每週提醒 (前一個月開始)
+    if (item.notify_1m_weekly) {
+        for (let i = 1; i <= 4; i++) {
+            const date = new Date(expiryDate);
+            date.setDate(date.getDate() - (i * 7));
+            if (date > now) possibleDates.push(date);
+        }
+    }
+
+    // 3. 每日提醒 (最後 7 天 或 在有效期內)
+    if (item.notify_last_7d_daily) {
+        // 檢查未來 14 天內的提醒
+        for (let i = 0; i <= 14; i++) {
+            const date = new Date();
+            date.setDate(date.getDate() + i);
+            date.setHours(parseInt(hr), parseInt(min), 0);
+
+            if (date >= expiryDate) break;
+            if (date <= now) continue;
+
+            const diffMs = expiryDate - date;
+            const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+            const isInLastWeek = diffDays <= 7;
+            const isInActiveRange = startDate ? (date >= startDate && date <= expiryDate) : false;
+
+            if (isInLastWeek || isInActiveRange) {
+                possibleDates.push(new Date(date));
+            }
+        }
+    }
+
+    if (possibleDates.length === 0) return null;
+
+    // 排序並找出最接近的時間
+    possibleDates.sort((a, b) => a - b);
+    return possibleDates[0];
+};

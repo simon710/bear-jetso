@@ -3,13 +3,15 @@ import { useApp } from '../../context/AppContext';
 import Icon from './Icon';
 import DiagonalTag from './DiagonalTag';
 import { getStatus, checkIsSoonExpiring } from '../../utils/helpers';
+import { getNextReminder } from '../../utils/notifications';
 
 const SocialPost = ({ item, isCommunity = false, onLike, onShare, onBookmark }) => {
-    const { setSelectedItem, theme, t, user, merchants, notify } = useApp();
+    const { setSelectedItem, theme, t, user, merchants, notify, notifTime, lang } = useApp();
     const [isImgLoading, setIsImgLoading] = React.useState(true);
     const status = getStatus(item);
     const isSoon = status === 'active' && checkIsSoonExpiring(item.expiryDate);
     const merchant = merchants.find(m => m.name === item.title || m.name_en === item.title);
+    const nextReminder = getNextReminder(item, notifTime);
 
     // Header Info
     const avatar = isCommunity ? (item.avatar || '🐻') : (merchant?.logo || '🐻');
@@ -139,6 +141,21 @@ const SocialPost = ({ item, isCommunity = false, onLike, onShare, onBookmark }) 
                         {item.startDate ? `${item.startDate.split('-').slice(1).join('/')} - ${item.expiryDate.split('-').slice(1).join('/')}` : `${t('expires')}: ${item.expiryDate}`}
                     </div>
                 </div>
+
+                {nextReminder && (
+                    <div className="flex items-center gap-1.5 mt-1">
+                        <div className="text-[10px] font-black flex items-center gap-1.5 px-3 py-1 rounded border-2 bg-pink-50 text-pink-500 border-pink-100">
+                            <Icon name="bell" size={12} />
+                            {nextReminder.toLocaleString(lang === 'zh' ? 'zh-HK' : 'en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: false
+                            })}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

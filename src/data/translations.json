@@ -21,7 +21,7 @@
         "expired": "已過期",
         "active": "有效中",
         "used": "已使用",
-        "scheduled": "預約中",
+        "scheduled": "未開始",
         "markAsUsed": "標記為已使用",
         "usedNotice": "此優惠已使用，將不會再收到提示。",
         "usageTime": "使用時間",
@@ -40,7 +40,7 @@
         "zoomHint": "點擊放大查看",
         "gallery": "圖片集",
         "notif1": "到期前一個月, 每星期提示",
-        "notif2": "到期前一星期或有期範圍內 每天提示",
+        "notif2": "到期前一星期 或 有效期範圍內 每天提示",
         "notifHistory": "通知記錄中心",
         "clearNotif": "清空記錄",
         "noNotif": "目前沒有通知記錄喔～",
@@ -97,7 +97,8 @@
         "myCollection": "我的收藏",
         "saveToPrivate": "加入私人貼子",
         "removeBookmark": "取消收藏貼子",
-        "alreadyBookmarked": "此優惠已收藏"
+        "alreadyBookmarked": "此優惠已收藏",
+        "nextReminder": "下一次提示"
     },
     "en": {
         "appTitle": "Bear Jetso",
@@ -121,7 +122,7 @@
         "expired": "Expired",
         "active": "Active",
         "used": "Used",
-        "scheduled": "Scheduled",
+        "scheduled": "Not Started",
         "markAsUsed": "Used It!",
         "usedNotice": "Used. No reminders.",
         "usageTime": "Used at",
@@ -196,6 +197,7 @@
         "myCollection": "My Collection",
         "saveToPrivate": "Save to Private",
         "removeBookmark": "Unbookmark",
-        "alreadyBookmarked": "Already Bookmarked"
+        "alreadyBookmarked": "Already Bookmarked",
+        "nextReminder": "Next Reminder"
     }
 }

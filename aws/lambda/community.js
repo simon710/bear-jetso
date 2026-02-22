@@ -1,12 +1,12 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, ScanCommand, PutCommand, UpdateCommand, GetCommand, BatchGetCommand } = require("@aws-sdk/lib-dynamodb");
+const { DynamoDBDocumentClient, ScanCommand, PutCommand, UpdateCommand, GetCommand, BatchGetCommand, DeleteCommand } = require("@aws-sdk/lib-dynamodb");
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 const COMMUNITY_TABLE = process.env.COMMUNITY_TABLE;
 const USERS_TABLE = process.env.USERS_TABLE;
 const UPLOAD_BUCKET = process.env.UPLOAD_BUCKET || 'bear-jetso-profile-pics';
-const ASSETS_DOMAIN = 'bigfootws.com';
+const ASSETS_DOMAIN = 'assets.bigfootws.com';
 
 function transformAvatarUrl(url) {
     if (!url) return url;
@@ -25,8 +25,10 @@ exports.handler = async (event) => {
     };
 
     try {
+        const actualPath = path ? path.replace('/prod', '') : '';
+
         // GET /community - List shared discounts with pagination
-        if (httpMethod === 'GET' && path === '/community') {
+        if (httpMethod === 'GET' && (actualPath === '/community' || event.resource === '/community')) {
             const isAdmin = event.queryStringParameters?.admin === 'true';
             const today = new Date().toISOString().split('T')[0];
             const limit = parseInt(event.queryStringParameters?.limit) || 10;
@@ -36,17 +38,20 @@ exports.handler = async (event) => {
             let items = [];
             let currentLastKey = lastKey;
 
+            // Use a larger window to ensure we get a better pool of "latest" items
+            const scanDepth = Math.max(limit * 10, 200);
+
             // Keep scanning until we have enough items or we've reached the end
             let scanCount = 0;
-            while (items.length < limit && scanCount < 5) {
+            while (items.length < scanDepth && scanCount < 5) {
                 const params = {
                     TableName: COMMUNITY_TABLE,
-                    Limit: limit * 2
+                    Limit: scanDepth
                 };
 
                 // Admin sees everything, normal users only see low reports and non-expired
                 if (!isAdmin) {
-                    params.FilterExpression = "reports < :val AND expiryDate >= :today AND suspended <> :true";
+                    params.FilterExpression = "reports < :val AND (attribute_not_exists(expiryDate) OR expiryDate >= :today) AND (attribute_not_exists(suspended) OR suspended <> :true)";
                     params.ExpressionAttributeValues = {
                         ":val": 10,
                         ":today": today,
@@ -87,15 +92,20 @@ exports.handler = async (event) => {
 
                 items = items.map(item => {
                     const avatar = transformAvatarUrl(item.avatar);
+                    const image = transformAvatarUrl(item.image);
+                    const images = (item.images || []).map(img => transformAvatarUrl(img));
+
                     if (item.userId && profilesMap[item.userId]) {
                         const profile = profilesMap[item.userId];
                         return {
                             ...item,
+                            image,
+                            images,
                             nickname: profile.nickname || item.nickname,
                             avatar: transformAvatarUrl(profile.avatar) || avatar
                         };
                     }
-                    return { ...item, avatar };
+                    return { ...item, avatar, image, images };
                 });
             }
 
@@ -109,8 +119,47 @@ exports.handler = async (event) => {
             };
         }
 
+        // GET /community/{id} - Get a single post
+        if (httpMethod === 'GET' && (actualPath.startsWith('/community/') || event.resource === '/community/{id}')) {
+            const id = pathParameters.id;
+            const res = await docClient.send(new GetCommand({
+                TableName: COMMUNITY_TABLE,
+                Key: { id }
+            }));
+
+            if (!res.Item) {
+                return { statusCode: 404, headers, body: JSON.stringify({ message: "Post not found" }) };
+            }
+
+            const item = res.Item;
+            // Optionally join user profile here if needed, but keeping it simple for now
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({
+                    ...item,
+                    avatar: transformAvatarUrl(item.avatar),
+                    image: transformAvatarUrl(item.image),
+                    images: (item.images || []).map(img => transformAvatarUrl(img))
+                })
+            };
+        }
+
+        // DELETE /community/{id}
+        if (httpMethod === 'DELETE' && (actualPath.startsWith('/community/') || event.resource === '/community/{id}')) {
+            const id = pathParameters.id;
+            // const isAdmin = event.requestContext?.authorizer?.claims?.['cognito:groups']?.includes('Admin') || true; // Force true for now if needed, but usually checked via API GW
+
+            await docClient.send(new DeleteCommand({
+                TableName: COMMUNITY_TABLE,
+                Key: { id }
+            }));
+
+            return { statusCode: 200, headers, body: JSON.stringify({ success: true, message: "Post deleted" }) };
+        }
+
         // POST /community/{id}/suspend
-        if (httpMethod === 'POST' && path.endsWith('/suspend')) {
+        if (httpMethod === 'POST' && (actualPath.endsWith('/suspend') || event.resource?.endsWith('/suspend'))) {
             const id = pathParameters.id;
             const bodyData = JSON.parse(body || '{}');
             const suspended = bodyData.suspended !== false;
@@ -127,7 +176,7 @@ exports.handler = async (event) => {
 
 
         // POST /community - Share a discount
-        if (httpMethod === 'POST' && path === '/community') {
+        if (httpMethod === 'POST' && (actualPath === '/community' || event.resource === '/community')) {
             const bodyData = JSON.parse(body);
             const newItem = {
                 ...bodyData,
@@ -153,7 +202,7 @@ exports.handler = async (event) => {
         }
 
         // POST /community/{id}/like
-        if (httpMethod === 'POST' && path.endsWith('/like')) {
+        if (httpMethod === 'POST' && (actualPath.endsWith('/like') || event.resource?.endsWith('/like'))) {
             const id = pathParameters.id;
             await docClient.send(new UpdateCommand({
                 TableName: COMMUNITY_TABLE,
@@ -166,7 +215,7 @@ exports.handler = async (event) => {
         }
 
         // POST /community/{id}/unlike
-        if (httpMethod === 'POST' && path.endsWith('/unlike')) {
+        if (httpMethod === 'POST' && (actualPath.endsWith('/unlike') || event.resource?.endsWith('/unlike'))) {
             const id = pathParameters.id;
             await docClient.send(new UpdateCommand({
                 TableName: COMMUNITY_TABLE,
@@ -179,7 +228,7 @@ exports.handler = async (event) => {
         }
 
         // POST /community/{id}/report
-        if (httpMethod === 'POST' && path.includes('/report')) {
+        if (httpMethod === 'POST' && (actualPath.includes('/report') || event.resource?.includes('/report'))) {
             const id = pathParameters.id;
             const res = await docClient.send(new UpdateCommand({
                 TableName: COMMUNITY_TABLE,
@@ -194,7 +243,12 @@ exports.handler = async (event) => {
         return {
             statusCode: 404,
             headers,
-            body: JSON.stringify({ message: "Not Found" })
+            body: JSON.stringify({
+                message: "Not Found",
+                path,
+                method: httpMethod,
+                resource: event.resource
+            })
         };
 
     } catch (error) {
@@ -202,7 +256,10 @@ exports.handler = async (event) => {
         return {
             statusCode: 500,
             headers,
-            body: JSON.stringify({ message: error.message })
+            body: JSON.stringify({
+                message: error.message,
+                stack: error.stack
+            })
         };
     }
 };

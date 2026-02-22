@@ -4,6 +4,7 @@ import { getStatus, checkIsExpired, checkIsSoonExpiring } from '../../utils/help
 import Icon from '../../components/common/Icon';
 import DiagonalTag from '../../components/common/DiagonalTag';
 import { useDiscountActions } from '../../hooks/useDiscountActions';
+import { getNextReminder } from '../../utils/notifications';
 
 const DiscountDetail = () => {
     const {
@@ -12,7 +13,7 @@ const DiscountDetail = () => {
         setIsEditing, setFormData,
         setZoomedImage, notify,
         likedPosts, setLikedPosts,
-        discounts, user
+        discounts, user, notifTime
     } = useApp();
 
     const [activeImgIdx, setActiveImgIdx] = useState(0);
@@ -62,6 +63,7 @@ const DiscountDetail = () => {
     const status = getStatus(selectedItem);
     const isSoon = status === 'active' && checkIsSoonExpiring(selectedItem.expiryDate);
     const merchant = merchants.find(m => m.name === selectedItem.title || m.name_en === selectedItem.title);
+    const nextReminder = getNextReminder(selectedItem, notifTime);
 
     // 處理 URL 自動連結
     const renderContentWithLinks = (text) => {
@@ -214,6 +216,23 @@ const DiscountDetail = () => {
                                         {code}
                                     </div>
                                 ))}
+                            </div>
+                        </div>
+                    )}
+                    {nextReminder && (
+                        <div className="col-span-2 space-y-1 pt-4 border-t border-gray-100/50">
+                            <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">{t('nextReminder')}</p>
+                            <div className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-pulse" />
+                                <p className="font-black text-sm text-pink-500">
+                                    {nextReminder.toLocaleString(lang === 'zh' ? 'zh-HK' : 'en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        hour12: false
+                                    })}
+                                </p>
                             </div>
                         </div>
                     )}

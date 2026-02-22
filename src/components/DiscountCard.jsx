@@ -1,13 +1,15 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { getStatus, checkIsSoonExpiring } from '../utils/helpers';
+import { getNextReminder } from '../utils/notifications';
 import DiagonalTag from './common/DiagonalTag';
 
 const DiscountCard = ({ item }) => {
-    const { setSelectedItem, merchants, t, lang, theme } = useApp();
+    const { setSelectedItem, merchants, t, lang, theme, notifTime } = useApp();
     const status = getStatus(item);
     const isSoon = status === 'active' && checkIsSoonExpiring(item.expiryDate);
     const merchant = merchants.find(m => m.name === item.title || m.name_en === item.title);
+    const nextReminder = getNextReminder(item, notifTime);
 
     return (
         <div
@@ -42,6 +44,19 @@ const DiscountCard = ({ item }) => {
                         🗓️ {item.expiryDate}
                     </span>
                 </div>
+                {nextReminder && (
+                    <div className="flex items-center gap-1 mt-1">
+                        <span className="text-[8px] font-black text-pink-400 bg-pink-50 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                            🔔 {nextReminder.toLocaleString(lang === 'zh' ? 'zh-HK' : 'en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: false
+                            })}
+                        </span>
+                    </div>
+                )}
             </div>
         </div>
     );
