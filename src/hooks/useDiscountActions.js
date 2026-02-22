@@ -8,7 +8,8 @@ export const useDiscountActions = () => {
         db, discounts, setDiscounts,
         setSelectedItem,
         setIsEditing, setActiveTab,
-        notifTime, user, notify, t, lang
+        notifTime, user, notify, t, lang,
+        checkSuspension
     } = useApp();
 
     const API_URL = import.meta.env.VITE_MERCHANTS_API_URL || 'https://api.bigfootws.com';
@@ -40,7 +41,10 @@ export const useDiscountActions = () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
-            }).catch(e => console.warn('Silent auto-backup heartbeat failed'));
+            })
+                .then(res => res.json())
+                .then(data => checkSuspension(data))
+                .catch(e => console.warn('Silent auto-backup heartbeat failed'));
         } catch (e) {
             console.warn('Auto-backup logic error', e);
         }
@@ -155,6 +159,9 @@ export const useDiscountActions = () => {
             });
 
             if (response.ok) {
+                const data = await response.json();
+                if (checkSuspension(data)) return;
+
                 const now = new Date().toLocaleString();
                 if (db.isFallback) {
                     const newList = discounts.map(d => d.id === item.id ? { ...d, is_community_shared: 1, sharedAt: now } : d);

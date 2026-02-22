@@ -12,7 +12,7 @@ const DiscountForm = ({ onSave }) => {
         formData, setFormData,
         formErrors, setFormErrors,
         merchants, t, lang, theme,
-        notify, setZoomedImage
+        notify, setZoomedImage, checkSuspension
     } = useApp();
 
     const [suggestions, setSuggestions] = useState([]);
@@ -104,6 +104,7 @@ const DiscountForm = ({ onSave }) => {
 
 
                     const ocrData = await ocrApi.detectText(compressedForOcr);
+                    if (checkSuspension(ocrData)) return;
                     const { detectedLines, extractedDate } = ocrData;
 
 

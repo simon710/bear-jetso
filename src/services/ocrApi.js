@@ -53,6 +53,12 @@ const ocrApi = {
             }
 
             const data = response.data;
+
+            // Check if suspended
+            if (data && (data.status === 'suspended' || data.message === 'suspended')) {
+                return data;
+            }
+
             console.log('🐻 [OCR] 辨識成功！結果:', {
                 lines: data.detectedLines?.length || 0,
                 date: data.extractedDate

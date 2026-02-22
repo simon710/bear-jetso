@@ -20,9 +20,66 @@ exports.handler = async (event) => {
     const { httpMethod, path, pathParameters, body } = event;
     const headers = {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token",
+        "Access-Control-Allow-Methods": "DELETE,GET,HEAD,OPTIONS,PATCH,POST,PUT",
         "Content-Type": "application/json"
     };
+
+    if (httpMethod === 'OPTIONS') {
+        return { statusCode: 200, headers, body: '' };
+    }
+
+    // Extract caller userId for block check and route logic
+    let callerUserId = null;
+
+    // Global Block Check
+    try {
+
+        // 1. Check Cognito Authorizer (Standard)
+        callerUserId = event.requestContext?.authorizer?.claims?.sub ||
+            event.requestContext?.authorizer?.claims?.['cognito:username'];
+
+        // 2. Manual JWT Parsing (Fallback for API Gateway Auth=NONE)
+        if (!callerUserId && event.headers) {
+            const authHeader = event.headers.Authorization || event.headers.authorization;
+            if (authHeader && authHeader.startsWith('Bearer ')) {
+                try {
+                    const payloadBase64 = authHeader.split('.')[1];
+                    if (payloadBase64) {
+                        const payload = JSON.parse(Buffer.from(payloadBase64, 'base64').toString());
+                        callerUserId = payload.sub || payload['cognito:username'] || payload.username;
+                    }
+                } catch (jwtErr) {
+                    console.error("JWT Parse Error:", jwtErr);
+                }
+            }
+        }
+
+        // 3. Fallback: userId from query parameter (used by mobile app)
+        if (!callerUserId && event.queryStringParameters?.userId) {
+            callerUserId = event.queryStringParameters.userId;
+        }
+
+        if (callerUserId) {
+            const userRes = await docClient.send(new GetCommand({
+                TableName: USERS_TABLE,
+                Key: { userId: callerUserId }
+            }));
+            if (userRes.Item && userRes.Item.suspended === true) {
+                return {
+                    statusCode: 403,
+                    headers,
+                    body: JSON.stringify({
+                        status: "suspended",
+                        message: "您的帳戶已被封鎖 / Your account has been blocked.",
+                        error: "USER_BLOCKED"
+                    })
+                };
+            }
+        }
+    } catch (blockCheckError) {
+        console.error("Block check error:", blockCheckError);
+    }
 
     try {
         const actualPath = path ? path.replace('/prod', '') : '';
@@ -30,6 +87,16 @@ exports.handler = async (event) => {
         // GET /community - List shared discounts with pagination
         if (httpMethod === 'GET' && (actualPath === '/community' || event.resource === '/community')) {
             const isAdmin = event.queryStringParameters?.admin === 'true';
+
+            // If not admin and no logged-in user, return empty array
+            if (!isAdmin && !callerUserId) {
+                return {
+                    statusCode: 200,
+                    headers,
+                    body: JSON.stringify([])
+                };
+            }
+
             const today = new Date().toISOString().split('T')[0];
             const limit = parseInt(event.queryStringParameters?.limit) || 10;
             const lastKey = event.queryStringParameters?.lastKey ?
@@ -73,7 +140,7 @@ exports.handler = async (event) => {
 
             items = items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, limit);
 
-            // ... (rest of user profile fetching)
+            // Fetch latest user profiles to ensure avatars/nicknames are up-to-date
             const userIds = [...new Set(items.map(i => i.userId).filter(id => !!id))];
             if (userIds.length > 0) {
                 const profilesMap = {};
@@ -132,7 +199,6 @@ exports.handler = async (event) => {
             }
 
             const item = res.Item;
-            // Optionally join user profile here if needed, but keeping it simple for now
             return {
                 statusCode: 200,
                 headers,
@@ -148,7 +214,6 @@ exports.handler = async (event) => {
         // DELETE /community/{id}
         if (httpMethod === 'DELETE' && (actualPath.startsWith('/community/') || event.resource === '/community/{id}')) {
             const id = pathParameters.id;
-            // const isAdmin = event.requestContext?.authorizer?.claims?.['cognito:groups']?.includes('Admin') || true; // Force true for now if needed, but usually checked via API GW
 
             await docClient.send(new DeleteCommand({
                 TableName: COMMUNITY_TABLE,

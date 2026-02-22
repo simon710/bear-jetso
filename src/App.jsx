@@ -50,7 +50,8 @@ const App = () => {
     notifHistory, setNotifHistory,
     showNotifCenter, setShowNotifCenter,
     viewDate, setHolidays,
-    t, notify, user, setUser
+    t, notify, user, setUser,
+    checkSuspension, logOut
   } = useApp();
 
   const platform = Capacitor.getPlatform();
@@ -205,6 +206,7 @@ const App = () => {
         const loadMerchantsPromise = (async () => {
           try {
             const data = await merchantsApi.getAllMerchants();
+            if (checkSuspension(data)) return;
             setMerchants(data);
           } catch (e) { console.error('Merchant load error:', e); }
           setIsMerchantsLoading(false);
@@ -439,7 +441,10 @@ const App = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
-        }).catch(err => console.warn('Auto-backup heartbeat failed'));
+        })
+          .then(res => res.json())
+          .then(data => checkSuspension(data))
+          .catch(err => console.warn('Auto-backup heartbeat failed'));
       }
     } catch (e) {
       console.error('🐻 [Storage Error]:', e);

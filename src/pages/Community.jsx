@@ -6,7 +6,7 @@ import { useDiscountActions } from '../hooks/useDiscountActions';
 import { checkIsSoonExpiring } from '../utils/helpers';
 
 const Community = () => {
-    const { theme, t, notify, setZoomedImage, likedPosts, setLikedPosts, setSelectedItem, user, discounts } = useApp();
+    const { theme, t, notify, setZoomedImage, likedPosts, setLikedPosts, setSelectedItem, user, discounts, checkSuspension, setActiveTab } = useApp();
     const { handleShare, handleBookmark } = useDiscountActions();
     const [posts, setPosts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -37,12 +37,22 @@ const Community = () => {
 
         try {
             const currentLastKey = isManualRefresh ? null : (loadingMore ? lastKey : null);
-            const url = `${API_URL}/community?limit=10${currentLastKey ? `&lastKey=${currentLastKey}` : ''}`;
+            let url = `${API_URL}/community?limit=10${currentLastKey ? `&lastKey=${currentLastKey}` : ''}`;
+            if (user && user.isLoggedIn && user.userId) {
+                url += `&userId=${user.userId}`;
+            }
 
             const response = await fetch(url);
-            if (response.ok) {
-                const data = await response.json();
+            let data = null;
+            try {
+                data = await response.json();
+            } catch (e) {
+                console.error('JSON parse error:', e);
+            }
 
+            if (checkSuspension(data, response.status)) return;
+
+            if (response.ok && data) {
                 // Backward compatibility: check if data is an array or an object with items
                 const newItems = Array.isArray(data) ? data : (data.items || []);
                 const nextKey = Array.isArray(data) ? null : data.lastKey;
@@ -55,6 +65,8 @@ const Community = () => {
 
                 setLastKey(nextKey);
                 setHasMore(!!nextKey);
+            } else if (!response.ok) {
+                notify('無法載入社群內容');
             }
         } catch (error) {
             console.error('Fetch error:', error);
@@ -152,8 +164,14 @@ const Community = () => {
         const endpoint = isLiked ? 'unlike' : 'like';
 
         try {
-            const response = await fetch(`${API_URL}/community/${post.id}/${endpoint}`, { method: 'POST' });
+            let url = `${API_URL}/community/${post.id}/${endpoint}`;
+            if (user && user.isLoggedIn && user.userId) {
+                url += `?userId=${user.userId}`;
+            }
+            const response = await fetch(url, { method: 'POST' });
             if (response.ok) {
+                const data = await response.json();
+                if (checkSuspension(data)) return;
                 setPosts(prev => prev.map(p => p.id === post.id ? { ...p, likes: (p.likes || 0) + (isLiked ? -1 : 1) } : p));
                 if (isLiked) {
                     setLikedPosts(prev => prev.filter(id => id !== post.id));
@@ -170,6 +188,27 @@ const Community = () => {
     const handlePostShare = (item) => {
         handleShare(item);
     };
+
+    if (!user || !user.isLoggedIn) {
+        return (
+            <div className="h-full flex flex-col items-center justify-center bg-gray-50/50 pb-24 px-6 text-center animate-in fade-in zoom-in duration-300">
+                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-lg border-4 border-pink-50 mb-6">
+                    <Icon name="users" size={40} className="text-pink-300" />
+                </div>
+                <h2 className={`text-xl font-black mb-3 ${theme.text}`}>專屬社群廣場</h2>
+                <p className="text-gray-400 text-sm mb-8 leading-relaxed max-w-[260px] font-medium">
+                    請先登入帳戶，探索其他熊友分享的最新即時優惠情報！🐻✨
+                </p>
+                <button
+                    onClick={() => setActiveTab('settings')}
+                    className={`px-8 py-3.5 rounded-2xl font-bold shadow-lg active:scale-95 transition-all text-white w-full max-w-[200px] flex items-center justify-center gap-2 ${theme.primary}`}
+                >
+                    <Icon name="users" size={18} />
+                    前往登入 / 註冊
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div

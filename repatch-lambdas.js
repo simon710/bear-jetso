@@ -1,11 +1,17 @@
-const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+const fs = require('fs');
 
-const client = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(client);
+const filesToPatch = [
+    //    { src: 'aws_backup/CommunityHandler/community.js', dest: 'aws/lambda/community.js' },
+    { src: 'aws_backup/UserProfileHandler/profile.js', dest: 'aws/lambda/profile.js' },
+    { src: 'aws_backup/CloudSyncHandler/sync.js', dest: 'aws/lambda/sync.js' },
+    { src: 'aws_backup/CreateMerchant/createMerchant.js', dest: 'aws/lambda/createMerchant.js' },
+    { src: 'aws_backup/UpdateMerchant/updateMerchant.js', dest: 'aws/lambda/updateMerchant.js' },
+    { src: 'aws_backup/getMerchantById/getMerchantById.js', dest: 'aws/lambda/getMerchantById.js' },
+    { src: 'aws_backup/getMerchants/getMerchants.js', dest: 'aws/lambda/getMerchants.js' },
+    { src: 'aws_backup/OcrDetectText/ocr.js', dest: 'aws/lambda/ocr.js' }
+];
 
-exports.handler = async (event) => {
-
+const checkLogic = `
     let _callerUserId = null;
     if (event.requestContext && event.requestContext.authorizer && event.requestContext.authorizer.claims) {
         _callerUserId = event.requestContext.authorizer.claims.sub || event.requestContext.authorizer.claims['cognito:username'];
@@ -54,7 +60,7 @@ exports.handler = async (event) => {
             }));
             if (userRes.Item && userRes.Item.suspended === true) {
                 return {
-                    statusCode: 200,
+                    statusCode: 403,
                     headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         status: 'suspended', 
@@ -65,70 +71,22 @@ exports.handler = async (event) => {
             }
         } catch(e) { console.error('Block check error:', e); }
     }
+`;
 
-    console.log('Event:', JSON.stringify(event, null, 2));
-
-    try {
-        const params = {
-            TableName: process.env.TABLE_NAME || 'Merchants'
-        };
-
-        const command = new ScanCommand(params);
-        const result = await docClient.send(command);
-
-        // 檢查是否需要回傳完整 ID 資訊 (merchantId, instagram_id)
-        const showMid = event.queryStringParameters && (event.queryStringParameters.mid === 'true' || event.queryStringParameters.mid === '1');
-
-        let items = result.Items || [];
-
-        // 處理回傳欄位
-        items = items.map(item => {
-            // 1. 移除不必要的系統時間欄位
-            const { updatedAt, createdAt, ...processedItem } = item;
-
-            // 2. 處理 logo 路徑 (只保留檔名)
-            if (processedItem.logo && typeof processedItem.logo === 'string' && processedItem.logo.startsWith('http')) {
-                const parts = processedItem.logo.split('/');
-                processedItem.logo = parts[parts.length - 1];
-            }
-
-            // 3. 根據 mid 參數決定是否返回 ID 欄位
-            if (!showMid) {
-                const { merchantId, instagram_id, ...rest } = processedItem;
-                return rest;
-            }
-
-            return processedItem;
-        });
-
-        return {
-            statusCode: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Methods': 'GET, OPTIONS'
-            },
-            body: JSON.stringify({
-                success: true,
-                merchants: items,
-                data: items,
-                count: items.length
-            })
-        };
-    } catch (error) {
-        console.error('Error:', error);
-
-        return {
-            statusCode: 500,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            body: JSON.stringify({
-                success: false,
-                error: error.message
-            })
-        };
+for (let fileObj of filesToPatch) {
+    if (!fs.existsSync(fileObj.src)) {
+        console.log('Skipping ' + fileObj.src);
+        continue;
     }
-};
+    let content = fs.readFileSync(fileObj.src, 'utf8');
+
+    const handlerRegex = /(exports\.handler\s*=\s*async\s*\(event\)\s*=>\s*\{)([\s\S]*)/;
+    const match = content.match(handlerRegex);
+    if (match) {
+        const newContent = content.substring(0, match.index) + match[1] + '\n' + checkLogic + match[2];
+        fs.writeFileSync(fileObj.dest, newContent, 'utf8');
+        console.log('Patched ' + fileObj.dest);
+    } else {
+        console.log('Could not find handler in ' + fileObj.src);
+    }
+}

@@ -53,6 +53,33 @@ export const AppProvider = ({ children }) => {
         };
     });
 
+    const logOut = () => {
+        const newUser = {
+            userId: 'user_' + Math.random().toString(36).substr(2, 9),
+            nickname: '',
+            avatar: '🐻',
+            isLoggedIn: false
+        };
+        setUser(newUser);
+        localStorage.removeItem('jetso_user');
+        setLikedPosts([]);
+        localStorage.removeItem('jetso_liked_posts');
+        notify('已登出帳戶 🐻');
+    };
+
+    const checkSuspension = (data, status) => {
+        const isSuspended = (status === 403) ||
+            (data && (data.status === 'suspended' || data.message === 'suspended' || data.error === 'USER_BLOCKED'));
+
+        if (isSuspended) {
+            const msg = (data && data.error === 'USER_BLOCKED' && data.message) ? data.message : '您的帳戶已被停用 (Suspended)。如有疑問請聯絡管理員。';
+            window.alert(msg);
+            logOut();
+            return true;
+        }
+        return false;
+    };
+
     const [notifTime, setNotifTime] = useState({
         hour: localStorage.getItem('jetso_notif_hr') || '09',
         min: localStorage.getItem('jetso_notif_min') || '00'
@@ -133,6 +160,7 @@ export const AppProvider = ({ children }) => {
         holidays, setHolidays,
         likedPosts, setLikedPosts,
         user, setUser,
+        logOut, checkSuspension,
         t, notify,
         themes
     };

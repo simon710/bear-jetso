@@ -1,11 +1,17 @@
-const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+const fs = require('fs');
 
-const client = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(client);
+const filesToPatch = [
+    'aws/lambda/community.js',
+    'aws/lambda/profile.js',
+    'aws/lambda/sync.js',
+    'aws/lambda/createMerchant.js',
+    'aws/lambda/updateMerchant.js',
+    'aws/lambda/getMerchantById.js',
+    'aws/lambda/getMerchants.js',
+    'aws/lambda/ocr.js'
+];
 
-exports.handler = async (event) => {
-
+const checkLogic = `
     let _callerUserId = null;
     if (event.requestContext && event.requestContext.authorizer && event.requestContext.authorizer.claims) {
         _callerUserId = event.requestContext.authorizer.claims.sub || event.requestContext.authorizer.claims['cognito:username'];
@@ -22,10 +28,12 @@ exports.handler = async (event) => {
             } catch (e) {}
         }
     }
+    // New: Check if userId is explicitly passed in query or body
     if (!_callerUserId && event.queryStringParameters && event.queryStringParameters.userId) {
         _callerUserId = event.queryStringParameters.userId;
     }
     if (!_callerUserId && event.pathParameters && event.pathParameters.id) {
+        // sometimes the id in path is the userId
         if (event.resource && event.resource.includes('/profile/{id}')) {
              _callerUserId = event.pathParameters.id;
         } else if (event.path && event.path.includes('/profile/')) {
@@ -54,7 +62,7 @@ exports.handler = async (event) => {
             }));
             if (userRes.Item && userRes.Item.suspended === true) {
                 return {
-                    statusCode: 200,
+                    statusCode: 403,
                     headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         status: 'suspended', 
@@ -65,70 +73,33 @@ exports.handler = async (event) => {
             }
         } catch(e) { console.error('Block check error:', e); }
     }
+`;
 
-    console.log('Event:', JSON.stringify(event, null, 2));
-
-    try {
-        const params = {
-            TableName: process.env.TABLE_NAME || 'Merchants'
-        };
-
-        const command = new ScanCommand(params);
-        const result = await docClient.send(command);
-
-        // 檢查是否需要回傳完整 ID 資訊 (merchantId, instagram_id)
-        const showMid = event.queryStringParameters && (event.queryStringParameters.mid === 'true' || event.queryStringParameters.mid === '1');
-
-        let items = result.Items || [];
-
-        // 處理回傳欄位
-        items = items.map(item => {
-            // 1. 移除不必要的系統時間欄位
-            const { updatedAt, createdAt, ...processedItem } = item;
-
-            // 2. 處理 logo 路徑 (只保留檔名)
-            if (processedItem.logo && typeof processedItem.logo === 'string' && processedItem.logo.startsWith('http')) {
-                const parts = processedItem.logo.split('/');
-                processedItem.logo = parts[parts.length - 1];
-            }
-
-            // 3. 根據 mid 參數決定是否返回 ID 欄位
-            if (!showMid) {
-                const { merchantId, instagram_id, ...rest } = processedItem;
-                return rest;
-            }
-
-            return processedItem;
-        });
-
-        return {
-            statusCode: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Methods': 'GET, OPTIONS'
-            },
-            body: JSON.stringify({
-                success: true,
-                merchants: items,
-                data: items,
-                count: items.length
-            })
-        };
-    } catch (error) {
-        console.error('Error:', error);
-
-        return {
-            statusCode: 500,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            body: JSON.stringify({
-                success: false,
-                error: error.message
-            })
-        };
+for (let file of filesToPatch) {
+    if (!fs.existsSync(file)) {
+        console.log('Skipping ' + file);
+        continue;
     }
-};
+    let content = fs.readFileSync(file, 'utf8');
+
+    // Remove any previous global block logic if we added it
+    if (content.includes('// Global Block Check') || content.includes('_callerUserId')) {
+        console.log('File ' + file + ' already has check, overwriting with universal check logic');
+        // But wait, our new files from aws_backup DON'T have the old check, except maybe some.
+        if (content.includes('_callerUserId')) {
+            continue; // Already ran this script on it
+        }
+    }
+
+    // We want to insert the logic right after `exports.handler = async (event) => {`
+    const handlerRegex = /(exports\.handler\s*=\s*async\s*\(event\)\s*=>\s*\{)([\s\S]*)/;
+    const match = content.match(handlerRegex);
+    if (match) {
+        // match[1] is the function signature, match[2] is the body
+        const newContent = content.substring(0, match.index) + match[1] + '\n' + checkLogic + match[2];
+        fs.writeFileSync(file, newContent, 'utf8');
+        console.log('Patched ' + file);
+    } else {
+        console.log('Could not find handler in ' + file);
+    }
+}

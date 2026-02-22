@@ -19,7 +19,8 @@ const Settings = ({ handleTestNotification }) => {
         t,
         setSelectedItem,
         setIsEditing,
-        setActiveTab
+        setActiveTab,
+        checkSuspension
     } = useApp();
 
     const [tempUser, setTempUser] = useState(user);
@@ -110,6 +111,7 @@ const Settings = ({ handleTestNotification }) => {
 
             if (response.ok) {
                 const cloudUser = await response.json();
+                if (checkSuspension(cloudUser)) return;
                 console.log("Profile sync complete:", cloudUser);
 
                 // Merge cloud user with loggedIn status
@@ -236,6 +238,8 @@ const Settings = ({ handleTestNotification }) => {
                 body: JSON.stringify(payload)
             });
             if (response.ok) {
+                const data = await response.json();
+                if (checkSuspension(data)) return;
                 notify('雲端備份成功！🐻☁️');
             } else {
                 throw new Error('備份失敗');
@@ -254,6 +258,7 @@ const Settings = ({ handleTestNotification }) => {
             const response = await fetch(`${API_URL}/sync/restore?userId=${userId}`);
             if (response.ok) {
                 const data = await response.json();
+                if (checkSuspension(data)) return;
                 if (data.discounts && data.discounts.length > 0) {
                     const confirmRestore = window.confirm(
                         '在雲端找到您的備份資料 (共有 ' + data.discounts.length + ' 條記錄)。\n' +
@@ -284,6 +289,7 @@ const Settings = ({ handleTestNotification }) => {
             const response = await fetch(`${API_URL}/sync/restore?userId=${user.userId}`);
             if (response.ok) {
                 const data = await response.json();
+                if (checkSuspension(data)) return;
                 await performRestore(data);
             } else {
                 throw new Error('還原失敗');
@@ -378,6 +384,7 @@ const Settings = ({ handleTestNotification }) => {
             });
             if (response.ok) {
                 const savedUser = await response.json();
+                if (checkSuspension(savedUser)) return;
                 console.log("Profile saved successfully:", savedUser);
                 setUser({ ...savedUser, isLoggedIn: user.isLoggedIn });
                 setTempUser(prev => ({ ...prev, avatarData: null })); // Clear upload data

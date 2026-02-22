@@ -65,8 +65,17 @@ class MerchantsApiService {
                 return this.loadLocalFallback();
             }
 
-            console.log('從 API 獲取商戶資料...', API_BASE_URL);
-            const response = await fetch(`${API_BASE_URL}/merchants`, {
+            let url = `${API_BASE_URL}/merchants`;
+            try {
+                const userDump = localStorage.getItem('jetso_user');
+                if (userDump) {
+                    const u = JSON.parse(userDump);
+                    if (u.isLoggedIn && u.userId) url += `?userId=${u.userId}`;
+                }
+            } catch (e) { }
+
+            console.log('從 API 獲取商戶資料...', url);
+            const response = await fetch(url, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json'
@@ -78,6 +87,11 @@ class MerchantsApiService {
             }
 
             const result = await response.json();
+
+            // Check if suspended
+            if (result && (result.status === 'suspended' || result.message === 'suspended')) {
+                return result; // Return raw result to handle suspension in UI
+            }
 
             // 靈活處理不同的 API 回傳格式
             let merchantsData = null;
@@ -127,7 +141,16 @@ class MerchantsApiService {
      */
     async getMerchantById(merchantId) {
         try {
-            const response = await fetch(`${API_BASE_URL}/merchants/${merchantId}`, {
+            let url = `${API_BASE_URL}/merchants/${merchantId}`;
+            try {
+                const userDump = localStorage.getItem('jetso_user');
+                if (userDump) {
+                    const u = JSON.parse(userDump);
+                    if (u.isLoggedIn && u.userId) url += `?userId=${u.userId}`;
+                }
+            } catch (e) { }
+
+            const response = await fetch(url, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json'
